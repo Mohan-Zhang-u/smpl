@@ -1,0 +1,20 @@
+sphinxcontrib-napoleon
+myst-parser
+sphinx>=4.0.2
+sphinx_rtd_theme>=1.0.0
+linkify-it-py
+nbsphinx
+
+numpy>=1.21.0
+pandas>=1.2.4
+scipy>=1.6.1
+gym>=0.18.3
+tqdm>=4.59.0
+mzutils>=0.1403
+# atropine-model
+casadi>=3.5.4
+control>=0.9.0
+future>=0.18.2
+torch>=1.6.0
+timeout_decorator
+# slycot>=0.4.0 # deprecated

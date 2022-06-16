@@ -1,0 +1,3 @@
+[submodule "smpl/envs/SIPPY"]
+	path = smpl/envs/SIPPY
+	url = git@github.com:smpl-env/SIPPY.git
