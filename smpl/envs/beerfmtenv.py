@@ -22,7 +22,6 @@ SUGAR_end_threshold = 0.5
 ZERO_C_IN_K = 273.15
 
 
-
 def beer_ode(points, t, sets):
     """
     Beer fermentation process
@@ -67,7 +66,8 @@ class BeerFMTEnvGym(smplEnvBase):
     def __init__(self, dense_reward=True, normalize=True, debug_mode=False, action_dim=1, observation_dim=8,
                  reward_function=None, done_calculator=None, max_observations=[15, 15, 15, 150, 150, 10, 10, MAX_STEPS],
                  min_observations=[0, 0, 0, 0, 0, 0, 0, 0], max_actions=[16.0], min_actions=[9.0],
-                 observation_name=["X_A", "X_L", "X_D", "S", "EtOH", "DY", "EA", "time"], action_name=["temperature"], np_dtype=np.float32, max_steps=MAX_STEPS, 
+                 observation_name=["X_A", "X_L", "X_D", "S", "EtOH", "DY", "EA", "time"], action_name=["temperature"],
+                 np_dtype=np.float32, max_steps=MAX_STEPS,
                  error_reward=-float(MAX_STEPS)):
 
         """
@@ -75,18 +75,18 @@ class BeerFMTEnvGym(smplEnvBase):
         The only action/input is temperature.
         The observations are Active Biomass (g/L), Lag Biomass (g/L), Dead Biomass (g/L), Sugar (g/L), Ethanol (g/L), Diacetyl (g/L), Ethyl Acetate (g/L), time (Hours)
         """
-        
+
         # define arguments
         self.step_count = 0
         self.total_reward = 0
         self.done = False
         self.dense_reward = dense_reward
-        self.normalize = normalize  
-        self.debug_mode = debug_mode  
+        self.normalize = normalize
+        self.debug_mode = debug_mode
         self.action_dim = action_dim
         self.observation_dim = observation_dim
-        self.reward_function = reward_function  
-        self.done_calculator = done_calculator  
+        self.reward_function = reward_function
+        self.done_calculator = done_calculator
         self.max_observations = max_observations
         self.min_observations = min_observations
         self.max_actions = max_actions
@@ -117,9 +117,9 @@ class BeerFMTEnvGym(smplEnvBase):
             self.observation_space = spaces.Box(low=self.min_observations, high=self.max_observations,
                                                 shape=(self.observation_dim,))
             self.action_space = spaces.Box(low=self.min_actions, high=self.max_actions, shape=(self.action_dim,))
-        
+
         self.res_forplot = []  # for plotting purposes
-    
+
     def reward_function_standard(self, previous_observation, action, current_observation, reward=None):
         if reward is not None:
             return reward
@@ -129,18 +129,19 @@ class BeerFMTEnvGym(smplEnvBase):
         done, done_info = self.done_calculator(current_observation, self.step_count, reward)
         early_submission = done_info.get('early_submission', False)
         if early_submission:
-            reward = -self.error_reward # early submission is rewarded. The end goal in this simulation is to reach the stop condition (finish production) with a certain time limit, the quicker the better.
-        elif done:  
-            reward = self.error_reward # reaches time limit but reaction has not finished
+            reward = -self.error_reward  # early submission is rewarded. The end goal in this simulation is to reach the stop condition (finish production) with a certain time limit, the quicker the better.
+        elif done:
+            reward = self.error_reward  # reaches time limit but reaction has not finished
         else:
-            reward = -1 # should finish as soon as possible
-        
+            reward = -1  # should finish as soon as possible
+
         reward = max(self.error_reward, reward)  # reward cannot be smaller than the error_reward
         if self.debug_mode:
             print("reward:", reward)
         return reward
-    
-    def done_calculator_standard(self, current_observation, step_count, reward, update_prev_biomass=False, done=None, done_info=None):
+
+    def done_calculator_standard(self, current_observation, step_count, reward, update_prev_biomass=False, done=None,
+                                 done_info=None):
         if done is None:
             done = False
         else:
@@ -166,26 +167,27 @@ class BeerFMTEnvGym(smplEnvBase):
             done_info["terminal"] = True
             done_info["timeout"] = True
             done = True
-            
+
         X_A, X_L, X_D, S, EtOH, DY, EA, time = current_observation
         current_biomass = X_A + X_L + X_D
-        if current_biomass < BIOMASS_end_threshold or abs(current_biomass - self.prev_biomass) < BIOMASS_end_change_threshold:
+        if current_biomass < BIOMASS_end_threshold or abs(
+                current_biomass - self.prev_biomass) < BIOMASS_end_change_threshold:
             if S < SUGAR_end_threshold:
                 if EtOH > 50.0:
-                    done_info["terminal"] = True # this is still terminal, though should be rewarded.
+                    done_info["terminal"] = True  # this is still terminal, though should be rewarded.
                     done_info["early_submission"] = True
                     done = True
         if update_prev_biomass:
             self.prev_biomass = current_biomass
         return done, done_info
-    
-    def sample_initial_state(self): # 
-        init_X_L = np.random.uniform(2 * 0.9, 2 * 1.1) # around 2
-        init_X_D = np.random.uniform(2 * 0.9, 2 * 1.1) # around 2
-        init_SUGER = np.random.uniform(INIT_SUGAR * 0.9, INIT_SUGAR * 1.1) # around INIT_SUGAR
+
+    def sample_initial_state(self):  #
+        init_X_L = np.random.uniform(2 * 0.9, 2 * 1.1)  # around 2
+        init_X_D = np.random.uniform(2 * 0.9, 2 * 1.1)  # around 2
+        init_SUGER = np.random.uniform(INIT_SUGAR * 0.9, INIT_SUGAR * 1.1)  # around INIT_SUGAR
         observation = np.array([0, init_X_L, init_X_D, init_SUGER, 0, 0, 0, 0], dtype=self.np_dtype)
         return observation
-    
+
     def reset(self, initial_state=None, normalize=None):
         """
         required by gym.
@@ -203,15 +205,15 @@ class BeerFMTEnvGym(smplEnvBase):
             observation = self.sample_initial_state()
             self.init_observation = observation
         self.previous_observation = observation
-        
+
         # TOMODIFY: reset your environment here.
         self.prev_biomass = observation[0] + observation[1] + observation[2]
-        
+
         normalize = self.normalize if normalize is None else normalize
         if normalize:
             observation, _, _ = normalize_spaces(observation, self.max_observations, self.min_observations)
         return observation
-    
+
     def step(self, action, normalize=None):
         """
         required by gym.
@@ -239,7 +241,8 @@ class BeerFMTEnvGym(smplEnvBase):
         if not reward:
             reward = self.reward_function(self.previous_observation, action, observation, reward=reward)
         if not done:
-            done, done_info = self.done_calculator(observation, self.step_count, reward, update_prev_biomass=True, done=done, done_info=done_info)
+            done, done_info = self.done_calculator(observation, self.step_count, reward, update_prev_biomass=True,
+                                                   done=done, done_info=done_info)
         self.previous_observation = observation
 
         self.total_reward += reward
@@ -257,4 +260,3 @@ class BeerFMTEnvGym(smplEnvBase):
         info = {"res_forplot": np.array(self.res_forplot)}
         info.update(done_info)
         return observation, reward, done, info
-

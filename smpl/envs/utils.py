@@ -1,8 +1,7 @@
-from torch.utils.data import Dataset
 import json
+import math
 import os
 import random
-import math
 import time
 # ---- to capture numpy warnings ----
 import warnings
@@ -12,7 +11,9 @@ import numpy as np
 from gym import spaces, Env  # to create an openai-gym environment https://gym.openai.com/
 from mzutils import SimplePriorityQueue, normalize_spaces, denormalize_spaces, mkdir_p
 from scipy.integrate import solve_ivp  # the ode solver
+from torch.utils.data import Dataset
 from tqdm import tqdm
+
 
 class TorchDatasetFromD4RL(Dataset):
     def __init__(self, dataset_d4rl) -> None:
@@ -67,8 +68,8 @@ class smplEnvBase(Env):
         self.total_reward = 0
         self.done = False
         self.dense_reward = dense_reward
-        self.normalize = normalize  
-        self.debug_mode = debug_mode  
+        self.normalize = normalize
+        self.debug_mode = debug_mode
         self.action_dim = action_dim
         self.observation_dim = observation_dim
         self.max_observations = max_observations
@@ -108,13 +109,13 @@ class smplEnvBase(Env):
         Returns:
             [bool]: observation is beyond the box or not.
         """
-        #TODO: check for how long?
+        # TODO: check for how long?
         observation = self.np_dtype(observation)
         return (not self.observation_space.contains(observation)) or np.any(
             np.isnan(observation)) or np.any(np.isinf(observation))
         # return np.any(observation > self.max_observations) or np.any(observation < self.min_observations) or np.any(
         #     np.isnan(observation)) or np.any(np.isinf(observation))
-        
+
     def action_beyond_box(self, action):
         """check if the action is beyond the box, which is what we don't want.
 
@@ -123,7 +124,7 @@ class smplEnvBase(Env):
 
         Returns:
             [bool]: action is beyond the box or not.
-        """       
+        """
         action = self.np_dtype(action)
         return (not self.action_space.contains(action)) or np.any(
             np.isnan(action)) or np.any(np.isinf(action))
@@ -147,7 +148,7 @@ class smplEnvBase(Env):
         elif reward is not None:
             # TOMODIFY: insert your own reward function here.
             reward = reward
-        
+
         reward = max(self.error_reward, reward)  # reward cannot be smaller than the error_reward
         if self.debug_mode:
             print("reward:", reward)
@@ -185,9 +186,9 @@ class smplEnvBase(Env):
             if done_info["terminal"] or done_info["timeout"]:
                 done = True
                 return done, done_info
-        
+
         # check for valid observation
-        if self.observation_beyond_box(current_observation): 
+        if self.observation_beyond_box(current_observation):
             # here we dont have action_beyond_box since action should not be passed in to done_calculator_standard.
             # however if action is beyond the box in step fucntion, reward_function_standard has already checked it
             # and the error_reward check below will be triggered.
@@ -205,12 +206,13 @@ class smplEnvBase(Env):
             done_info["terminal"] = True
             done_info["timeout"] = True
             done = True
-            
+
         # TOMODIFY: insert your own done calculator here.
 
         return done, done_info
-    
-    def observation_done_and_reward_calculator(self, current_observation, action, normalize=None, step_reward=None, done_info=None):
+
+    def observation_done_and_reward_calculator(self, current_observation, action, normalize=None, step_reward=None,
+                                               done_info=None):
         """the s, a, r, s, a rollout, with error checks.
 
         Args:
@@ -231,11 +233,11 @@ class smplEnvBase(Env):
             "terminal" should be True whenever timeout or error_occurred.
         """
         current_observation = np.array(current_observation, dtype=self.np_dtype)
-        
+
         if done_info is None:
             done_info = {"timeout": False, "error_occurred": False, "terminal": False}
             # done_info["terminal"] and done_info["timeout"] can only be flip from False to True, not vice versa.
-        
+
         # check for step_count
         if self.step_count >= self.max_steps:  # same as range(0, max_steps)
             done_info["terminal"] = True
@@ -251,13 +253,13 @@ class smplEnvBase(Env):
         if math.isnan(step_reward):
             done_info["terminal"] = True
             done_info["error_occurred"] = True
-        
+
         # TOMODIFY: mostly you won't, but you can add your own done calculation here if necessary.
-        
+
         if not done_info["terminal"]:
             # TOMODIFY: compute your reward here, or use the reward argument passed in by step function.
             step_reward = step_reward
-        
+
         # check for valid reward, again.
         step_reward = max(self.error_reward, step_reward)  # reward cannot be smaller than the error_reward
         if step_reward == self.error_reward:
@@ -266,14 +268,14 @@ class smplEnvBase(Env):
         if math.isnan(step_reward):
             done_info["terminal"] = True
             done_info["error_occurred"] = True
-        
+
         if done_info["error_occurred"] or done_info["timeout"]:
             assert done_info["terminal"]
 
-        if done_info["error_occurred"] is True: # error occured. Set reward to self.error_reward.
+        if done_info["error_occurred"] is True:  # error occured. Set reward to self.error_reward.
             self.total_reward = self.error_reward
             reward = self.error_reward
-        else: # figure out step_reward or total_reward to return.
+        else:  # figure out step_reward or total_reward to return.
             self.total_reward += step_reward
             if self.dense_reward:
                 reward = step_reward
@@ -281,17 +283,18 @@ class smplEnvBase(Env):
                 reward = 0.0
             else:
                 reward = self.total_reward
-        
+
         if self.debug_mode:
             print("reward:", reward)
-            
+
         observation = current_observation
         self.previous_observation = observation
-        observation = observation.clip(self.min_observations, self.max_observations) # clip observation so that it won't be beyond the box
+        observation = observation.clip(self.min_observations,
+                                       self.max_observations)  # clip observation so that it won't be beyond the box
         if normalize:
             observation, _, _ = normalize_spaces(observation, self.max_observations, self.min_observations)
         self.step_count += 1
-         
+
         return observation, reward, done_info["terminal"], done_info
 
     def sample_initial_state(self):
@@ -313,14 +316,13 @@ class smplEnvBase(Env):
             observation = self.sample_initial_state()
             self.init_observation = observation
         self.previous_observation = observation
-        
+
         # TOMODIFY: reset your environment here.
-        
+
         normalize = self.normalize if normalize is None else normalize
         if normalize:
             observation, _, _ = normalize_spaces(observation, self.max_observations, self.min_observations)
         return observation
-
 
     def step(self, action, normalize=None):
         """
@@ -344,12 +346,14 @@ class smplEnvBase(Env):
         except Exception as e:
             observation = self.min_observations
             done_info = {"timeout": False, "error_occurred": True, "terminal": True}
-        
-        observation, reward, done, done_info = self.observation_done_and_reward_calculator(observation, action, normalize=normalize, step_reward=reward, done_info=done_info)
+
+        observation, reward, done, done_info = self.observation_done_and_reward_calculator(observation, action,
+                                                                                           normalize=normalize,
+                                                                                           step_reward=reward,
+                                                                                           done_info=done_info)
         info = {}
         info.update(done_info)
         return observation, reward, done, info
-
 
     def set_initial_states(self, initial_states, num_episodes):
         if initial_states is None:
@@ -358,7 +362,7 @@ class smplEnvBase(Env):
             initial_states = np.load(initial_states)
         assert len(initial_states) == num_episodes
         return initial_states
-    
+
     def evenly_spread_initial_states(self, val_per_state, dump_location=None):
         """
         Evenly spread initial states.
@@ -392,7 +396,6 @@ class smplEnvBase(Env):
         if dump_location is not None:
             np.save(dump_location, initial_states)
         return initial_states
-
 
     def evalute_algorithms(self, algorithms, num_episodes=1, error_reward=None, initial_states=None, to_plt=True,
                            plot_dir='./plt_results'):
@@ -433,7 +436,7 @@ class smplEnvBase(Env):
                 algo_rewards = []  # list, for this algorithm, reawards of this trajectory.
                 try:
                     init_obs = self.reset(initial_state=initial_states[n_epi])
-                except TypeError: # means env cant set with initial_state, like PenSimEnvGym
+                except TypeError:  # means env cant set with initial_state, like PenSimEnvGym
                     init_obs = self.reset()
                 # algo_observes.append(init_obs)
                 o = init_obs
@@ -511,8 +514,7 @@ class smplEnvBase(Env):
         actions_list = np.array(actions_list)
         rewards_list = np.array(rewards_list)
         return observations_list, actions_list, rewards_list
-    
-    
+
     def algorithms_to_algo_names(self, algorithms):
         """
 
@@ -526,7 +528,6 @@ class smplEnvBase(Env):
         for algo, algo_name, _ in algorithms:
             algo_names.append(algo_name)
         return algo_names
-
 
     def report_rewards(self, rewards_list, algo_names=None, save_dir=None):
         """
@@ -571,7 +572,7 @@ class smplEnvBase(Env):
         f_dir = os.path.join(save_dir, 'result.json')
         json.dump(result_dict, open(f_dir, 'w+'))
         return result_dict
-        
+
     def dataset_to_observations_actions_rewards_list(self, dataset):
         """_summary_
 
@@ -582,7 +583,7 @@ class smplEnvBase(Env):
             the same as evalute_algorithms
         """
         try:
-            dataset = TorchDatasetFromD4RL(dataset) # convert to torch dataset
+            dataset = TorchDatasetFromD4RL(dataset)  # convert to torch dataset
         except TypeError:
             pass
         observations_list_0 = []

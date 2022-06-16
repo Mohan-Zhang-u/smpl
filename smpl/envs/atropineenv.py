@@ -3,12 +3,13 @@
 AtropineEnv simulates an atropine production environment.
 """
 
+import io
+
 import matplotlib.pyplot as plt
 import numpy as np
+import requests
 from casadi import DM
 from gym import spaces, Env
-import requests
-import io
 
 from .helpers.constants import USS, INPUT_REFS, OUTPUT_REF, SIM_TIME
 from .helpers.helper_funcs import state_estimator
@@ -18,14 +19,14 @@ from .utils import *
 
 
 class AtropineMPC:
-    def __init__(self, 
-        model_loc='https://github.com/Quarticai/QuarticGym/blob/master/quarticgym/datasets/atropineenv/model.npy?raw=true',
-        N=30, Nx=2, Nu=4,
-        uss_subtracted=True, reward_on_ess_subtracted=False, reward_on_steady=True,
-        reward_on_absolute_efactor=False, reward_on_actions_penalty=0.0, reward_on_reject_actions=True,
-        relaxed_max_min_actions=False, observation_include_t=True, observation_include_action=False,
-        observation_include_uss=True, observation_include_ess=True, observation_include_e=True,
-        observation_include_kf=True, observation_include_z=True, observation_include_x=False):
+    def __init__(self,
+                 model_loc='https://github.com/Quarticai/QuarticGym/blob/master/quarticgym/datasets/atropineenv/model.npy?raw=true',
+                 N=30, Nx=2, Nu=4,
+                 uss_subtracted=True, reward_on_ess_subtracted=False, reward_on_steady=True,
+                 reward_on_absolute_efactor=False, reward_on_actions_penalty=0.0, reward_on_reject_actions=True,
+                 relaxed_max_min_actions=False, observation_include_t=True, observation_include_action=False,
+                 observation_include_uss=True, observation_include_ess=True, observation_include_e=True,
+                 observation_include_kf=True, observation_include_z=True, observation_include_x=False):
         response = requests.get(model_loc)
         response.raise_for_status()
         self.model_preconfig = np.load(io.BytesIO(response.content), allow_pickle=True)
@@ -51,7 +52,7 @@ class AtropineMPC:
         self.observation_include_z = observation_include_z  # 30
         self.observation_include_x = observation_include_x  # 1694
         assert (self.observation_include_kf)
-        
+
     def predict(self, state):
         # self.observation_include_t = observation_include_t  # 1
         # self.observation_include_action = observation_include_action  # 4
@@ -101,46 +102,47 @@ class AtropineMPC:
 
 class AtropineEnvGym(smplEnvBase):
     def __init__(self, dense_reward=True, normalize=True, debug_mode=False, action_dim=4,
-                 reward_function=None, done_calculator=None, 
-                 observation_name=None, action_name=None, np_dtype=np.float32, max_steps=60, 
+                 reward_function=None, done_calculator=None,
+                 observation_name=None, action_name=None, np_dtype=np.float32, max_steps=60,
                  error_reward=-100000.0,
                  x0_loc='https://raw.githubusercontent.com/smpl-env/smpl/main/smpl/datasets/atropineenv/x0.txt',
                  z0_loc='https://raw.githubusercontent.com/smpl-env/smpl/main/smpl/datasets/atropineenv/z0.txt',
                  model_loc='https://github.com/Quarticai/QuarticGym/blob/master/quarticgym/datasets/atropineenv/model.npy?raw=true',
                  uss_subtracted=True, reward_on_ess_subtracted=False, reward_on_steady=True,
-                 reward_on_absolute_efactor=False, reward_on_actions_penalty=0.0, reward_on_reject_actions=True, reward_scaler=1.0,
+                 reward_on_absolute_efactor=False, reward_on_actions_penalty=0.0, reward_on_reject_actions=True,
+                 reward_scaler=1.0,
                  relaxed_max_min_actions=False, observation_include_t=True, observation_include_action=False,
                  observation_include_uss=True, observation_include_ess=True, observation_include_e=True,
                  observation_include_kf=True, observation_include_z=True, observation_include_x=False,
-                #  init_mpc_controller=False
+                 #  init_mpc_controller=False
                  ):
         # define arguments
         self.step_count = 0
         self.total_reward = 0
         self.done = False
         self.dense_reward = dense_reward
-        self.normalize = normalize  
-        self.debug_mode = debug_mode  
+        self.normalize = normalize
+        self.debug_mode = debug_mode
         self.action_dim = action_dim
-        self.reward_function = reward_function  
-        self.done_calculator = done_calculator  
+        self.reward_function = reward_function
+        self.done_calculator = done_calculator
         self.observation_name = observation_name
         self.action_name = action_name
         self.np_dtype = np_dtype
-        self.max_steps = max_steps # note that if self.max_steps == -1 then this simulator runs forever (open-loop).
+        self.max_steps = max_steps  # note that if self.max_steps == -1 then this simulator runs forever (open-loop).
         self.error_reward = error_reward
         if self.reward_function is None:
             self.reward_function = self.reward_function_standard
         if self.done_calculator is None:
             self.done_calculator = self.done_calculator_standard
-            
+
         self.uss_subtracted = uss_subtracted  # we assume that we can see the steady state output during steps. If true, we plus the actions with USS during steps.
         self.reward_on_ess_subtracted = reward_on_ess_subtracted
         self.reward_on_steady = reward_on_steady  # whether reward base on Efactor (the small the better) or base on how close it is to the steady e-factor
         self.reward_on_absolute_efactor = reward_on_absolute_efactor  # whether reward base on absolute Efactor. (is a valid input only if reward_on_steady is False)
         self.reward_on_actions_penalty = reward_on_actions_penalty
         self.reward_on_reject_actions = reward_on_reject_actions  # when input actions are larger than max_actions, reject it and end the env immediately.
-        self.reward_scaler = reward_scaler # a scaler multiplied on rewards to avoid numerical errors. By default, it is 1.0. In our paper, it is 100000.0 (which takes readability into account).
+        self.reward_scaler = reward_scaler  # a scaler multiplied on rewards to avoid numerical errors. By default, it is 1.0. In our paper, it is 100000.0 (which takes readability into account).
         self.relaxed_max_min_actions = relaxed_max_min_actions  # assume uss_subtracted = false.
 
         # now, select what to include during observations. by default we should have format like 
@@ -153,7 +155,7 @@ class AtropineEnvGym(smplEnvBase):
         self.observation_include_kf = observation_include_kf  # after kalman filter, 2
         self.observation_include_z = observation_include_z  # 30
         self.observation_include_x = observation_include_x  # 1694
-        
+
         if type(x0_loc) is str:
             response = requests.get(x0_loc)
             response.raise_for_status()
@@ -177,7 +179,7 @@ class AtropineEnvGym(smplEnvBase):
         response = requests.get(model_loc)
         response.raise_for_status()
         self.model_preconfig = np.load(io.BytesIO(response.content), allow_pickle=True)
-        
+
         # for a fixed batch.
         self.ur = INPUT_REFS  # reference inputs
         self.yr = OUTPUT_REF  # reference output
@@ -185,12 +187,12 @@ class AtropineEnvGym(smplEnvBase):
 
         self.observation_dim = 1 * self.observation_include_t + 4 * self.observation_include_action + 4 * self.observation_include_uss + 1 * self.observation_include_ess + \
                                1 * self.observation_include_e + 2 * self.observation_include_kf + 30 * self.observation_include_z + 1694 * self.observation_include_x
-        
+
         if self.observation_name is None:
             self.observation_name = [f'o_{i}' for i in range(self.observation_dim)]
         if self.action_name is None:
             self.action_name = [f'a_{i}' for i in range(self.action_dim)]
-        
+
         max_observations = []
         if self.observation_include_t:
             max_observations.append(np.ones(1, dtype=np.float32) * 100.0)  # by convention
@@ -256,12 +258,13 @@ class AtropineEnvGym(smplEnvBase):
             self.action_space = spaces.Box(low=self.min_actions, high=self.max_actions, shape=(self.action_dim,))
         self.plant = Plant(ND1, ND2, ND3, V1, V2, V3, V4, dt)
         self.yss = self.plant.calculate_Efactor(DM(self.z0))  # steady state output, e-factor
-        
+
     def sample_initial_state(self, no_sample=False, lower_bound=0.99, upper_bound=1.01):
         if no_sample:
             x0 = self.x0
         else:
-            x0_c = self.x0.clip(1e-30) # treat all negative concentration values as numerical error and set to close to zero to avoid numerical issues.
+            x0_c = self.x0.clip(
+                1e-30)  # treat all negative concentration values as numerical error and set to close to zero to avoid numerical issues.
             low = x0_c * lower_bound
             up = x0_c * upper_bound
             x0 = np.random.uniform(low, up)
@@ -270,7 +273,7 @@ class AtropineEnvGym(smplEnvBase):
         self.previous_efactor = self.yss  # steady state output, e-factor, the small the better
         observations = []
         if self.observation_include_t:
-            observations.append(np.array([0], dtype=np.float32)) # since initial state should have self.step_count = 0
+            observations.append(np.array([0], dtype=np.float32))  # since initial state should have self.step_count = 0
         if self.observation_include_action:
             observations.append(np.zeros(4, dtype=np.float32))
         if self.observation_include_uss:
@@ -291,7 +294,7 @@ class AtropineEnvGym(smplEnvBase):
         except ValueError:
             raise Exception("observations must contain something! Need at least one array to concatenate")
         return observation
-        
+
     def reset(self, initial_state=None, normalize=None):
         """
         Required by gym, this function resets the environment and returns an initial observation.
@@ -308,16 +311,16 @@ class AtropineEnvGym(smplEnvBase):
             observation = self.sample_initial_state()
             self.init_observation = observation
         self.previous_observation = observation
-        
+
         # TOMODIFY: reset your environment here.
         self.U = []  # inputs
         self.Y = []
-        
+
         normalize = self.normalize if normalize is None else normalize
         if normalize:
             observation, _, _ = normalize_spaces(observation, self.max_observations, self.min_observations)
         return observation
-    
+
     def reward_function_standard(self, previous_observation, action, current_observation, reward=None):
         """the s, a, r, s, a calculation.
 
@@ -335,12 +338,12 @@ class AtropineEnvGym(smplEnvBase):
         elif reward is not None:
             # TOMODIFY: insert your own reward function here.
             reward = reward * self.reward_scaler
-        
+
         reward = max(self.error_reward, reward)  # reward cannot be smaller than the error_reward
         if self.debug_mode:
             print("reward:", reward)
         return reward
-    
+
     def done_calculator_standard(self, current_observation, step_count, reward, done=None, done_info=None):
         """check whether the current episode is considered finished.
             returns a boolean value indicated done or not, and a dictionary with information.
@@ -385,7 +388,7 @@ class AtropineEnvGym(smplEnvBase):
             done = True
 
         return done, done_info
-    
+
     def _step(self, action, normalize=None):
         """
         Required by gym, his function performs one step within the environment and returns the observation, the reward, whether the episode is finished and debug information, if any.
@@ -484,12 +487,12 @@ class AtropineEnvGym(smplEnvBase):
             observation, _, _ = normalize_spaces(observation, self.max_observations, self.min_observations)
         self.step_count += 1
         info = {
-            "efactor": efactor, 
+            "efactor": efactor,
             "previous_efactor": previous_efactor,
             "reward_on_steady": reward_on_steady,
             "reward_on_absolute_efactor": reward_on_absolute_efactor,
             "reward_on_efactor_diff": reward_on_efactor_diff
-            }
+        }
         info.update(done_info)
         return observation, reward, done, info
 
@@ -502,9 +505,9 @@ class AtropineEnvGym(smplEnvBase):
             done_info = {"terminal": True, "timeout": False}
             observation = np.zeros(self.observation_dim, dtype=np.float32)
             info = {
-                "efactor": -self.error_reward, 
+                "efactor": -self.error_reward,
                 "previous_efactor": self.previous_efactor,
-                "reward_on_steady": reward, 
+                "reward_on_steady": reward,
                 "reward_on_absolute_efactor": reward,
                 "reward_on_efactor_diff": reward
             }
@@ -696,14 +699,16 @@ class AtropineEnvGym(smplEnvBase):
                                                                                 initial_states=initial_states,
                                                                                 to_plt=to_plt, plot_dir=plot_dir)
         from warnings import warn
-        warn('The function evaluate_rewards_mean_std_over_episodes is deprecated. Please use report_rewards.', DeprecationWarning, stacklevel=2)
+        warn('The function evaluate_rewards_mean_std_over_episodes is deprecated. Please use report_rewards.',
+             DeprecationWarning, stacklevel=2)
         for n_algo in range(len(algorithms)):
             _, algo_name, _ = algorithms[n_algo]
             rewards_list_curr_algo = rewards_list[n_algo]
             if computer_on_episodes:
                 rewards_mean_over_episodes = []  # rewards_mean_over_episodes[n_epi] is mean of rewards of n_epi
                 for n_epi in range(num_episodes):
-                    if rewards_list_curr_algo[n_epi][-1] == self.error_reward: # if error_reward is provided, self.error_reward is overwritten in self.evalute_algorithms
+                    if rewards_list_curr_algo[n_epi][
+                        -1] == self.error_reward:  # if error_reward is provided, self.error_reward is overwritten in self.evalute_algorithms
                         rewards_mean_over_episodes.append(self.error_reward)
                     else:
                         rewards_mean_over_episodes.append(np.mean(rewards_list_curr_algo[n_epi]))

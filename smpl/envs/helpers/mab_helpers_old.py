@@ -1,9 +1,10 @@
+import os
+
+import matplotlib.pyplot as plt
 import mpctools as mpc
+import numpy as np
 from casadi import *
 from scipy import integrate
-import numpy as np
-import matplotlib.pyplot as plt
-import os
 
 xscale = np.array([3e10, 5e10, 5e3, 50, 200, 50, 150, 3000, 2e10, 3e10, 5000, 100,
                    250, 100, 200, 3000, 37.0])
@@ -20,28 +21,28 @@ class UpModelHelper():
 
     def reactor(self, x, u):
         # Parameter values
-        K_damm = 1.76     # ammonia constant for cell death (mM)
+        K_damm = 1.76  # ammonia constant for cell death (mM)
         K_dgln = 9.6e-03  # constant for glutamine degradation (h^(-1))
-        K_glc = 0.75      # Monod constant for glucose (mM)
-        K_gln = 0.075     # Monod constant for glutamine (mM)
-        KI_amm = 28.48    # Monod constant for ammonia (mM)
-        KI_lac = 171.76   # Monod constant for lactate (mM)
-        m_glc = 4.9e-14   # maintenance coefficients of glucose (mmol/cell/h)
-        n = 2             # constant represents the increase of specific death as ammonia concentration increases (-)
-        Y_ammgln = 0.45   # yield of ammonia from glutamine (mmol/mmol)
-        Y_lacglc = 2.0    # yield of lactate from glucose (mmol/mmol)
-        Y_Xglc = 2.6e8    # yield of cells on glucose (cell/mmol)
-        Y_Xgln = 8e8      # yield of cells on glutamine (cell/mmol)
+        K_glc = 0.75  # Monod constant for glucose (mM)
+        K_gln = 0.075  # Monod constant for glutamine (mM)
+        KI_amm = 28.48  # Monod constant for ammonia (mM)
+        KI_lac = 171.76  # Monod constant for lactate (mM)
+        m_glc = 4.9e-14  # maintenance coefficients of glucose (mmol/cell/h)
+        n = 2  # constant represents the increase of specific death as ammonia concentration increases (-)
+        Y_ammgln = 0.45  # yield of ammonia from glutamine (mmol/mmol)
+        Y_lacglc = 2.0  # yield of lactate from glucose (mmol/mmol)
+        Y_Xglc = 2.6e8  # yield of cells on glucose (cell/mmol)
+        Y_Xgln = 8e8  # yield of cells on glutamine (cell/mmol)
         alpha1 = 3.4e-13  # constants of glutamine maintenance coefficient (mM L/cell/h)
-        alpha2 = 4        # constants of glutamine maintenance coefficient (mM)
-        mu_max = (0.0016*x[16] - 0.0308)*5  # 0.058 * 5  # maximum specific growth rate (h^(-1))
-        mu_dmax = (-0.0045*x[16] + 0.1682)  # 0.06    # maximum specific death rate (h^(-1))
+        alpha2 = 4  # constants of glutamine maintenance coefficient (mM)
+        mu_max = (0.0016 * x[16] - 0.0308) * 5  # 0.058 * 5  # maximum specific growth rate (h^(-1))
+        mu_dmax = (-0.0045 * x[16] + 0.1682)  # 0.06    # maximum specific death rate (h^(-1))
         m_mabx = 6.59e-10  # constant production of mAb by viable cells (mg/Cell/h)
 
         # Add new parameters -- Ben
-        Delta_H = 5e5     # 4.4e4# 1e-8
-        rho = 1560.0      # density of mixture is assumed to be density of glucose [g/L]
-        cp = 1.244        # specific heat capacity of mixture is assumed to be that of glucose [J/g/dC]
+        Delta_H = 5e5  # 4.4e4# 1e-8
+        rho = 1560.0  # density of mixture is assumed to be density of glucose [g/L]
+        cp = 1.244  # specific heat capacity of mixture is assumed to be that of glucose [J/g/dC]
         U = 4e2
         T_in = 37.0
 
@@ -49,37 +50,37 @@ class UpModelHelper():
         dxdt = []
 
         # Inputs:
-        F_in = u[0]    # inlet flow rate (L/h)
-        F_1 = u[1]     # outlet flow rate of bioreactor (L/h)
-        F_r = u[2]     # u[1]-u[3] # u[2]      # recycle flow rate (L/h)
-        F_2 = u[3]     # Outlet flow rate of separator (L/h)
+        F_in = u[0]  # inlet flow rate (L/h)
+        F_1 = u[1]  # outlet flow rate of bioreactor (L/h)
+        F_r = u[2]  # u[1]-u[3] # u[2]      # recycle flow rate (L/h)
+        F_2 = u[3]  # Outlet flow rate of separator (L/h)
         GLC_in = u[4]  # inlet glucose concentration (mM)
         GLN_in = u[5]  # inlet glutamine concentration (mM)
-        Tc = u[6]      # coolant temperature (d C)
+        Tc = u[6]  # coolant temperature (d C)
 
         # States:
-        Xv1 = x[0]   # concentration of viable cells in reactor(cell/L)
-        Xt1 = x[1]   # total concentration of cells in reactor(cell/L)
+        Xv1 = x[0]  # concentration of viable cells in reactor(cell/L)
+        Xt1 = x[1]  # total concentration of cells in reactor(cell/L)
         GLC1 = x[2]  # glucose concentration in reactor(mM)
         GLN1 = x[3]  # glutamine concentration in reactor(mM)
         LAC1 = x[4]  # lactate concentration in reactor(mM)
         AMM1 = x[5]  # ammonia concentration in reactor(mM)
         mAb1 = x[6]  # mAb concentration in reactor(mg/L)
-        V1 = x[7]    # volume in reactor (L)
-        Xv2 = x[8]    # concentration of viable cells in separator(cell/L)
-        Xt2 = x[9]    # total concentration of cells in separator(cell/L)
+        V1 = x[7]  # volume in reactor (L)
+        Xv2 = x[8]  # concentration of viable cells in separator(cell/L)
+        Xt2 = x[9]  # total concentration of cells in separator(cell/L)
         GLC2 = x[10]  # glucose concentration in separator(mM)
         GLN2 = x[11]  # glutamine concentration in separator(mM)
         LAC2 = x[12]  # lactate concentration in separator(mM)
         AMM2 = x[13]  # ammonia concentration in separator(mM)
         mAb2 = x[14]  # mAb concentration in separator(mg/L)
-        V2 = x[15]    # volume in separator (L)
+        V2 = x[15]  # volume in separator (L)
         # temperature as a state -- Ben
         T = x[16]
 
         # Assumptions: 92% cell recycle rate and 20% mab retention
-        Xvr = 0.92 * Xv1 * F_1 / F_r   # concentration of viable cells in recycle stream(cell/L)
-        Xtr = 0.92 * Xt1 * F_1 / F_r   # total concentration of cells in recycle stream(cell/L)
+        Xvr = 0.92 * Xv1 * F_1 / F_r  # concentration of viable cells in recycle stream(cell/L)
+        Xtr = 0.92 * Xt1 * F_1 / F_r  # total concentration of cells in recycle stream(cell/L)
         GLCr = 0.2 * GLC1 * F_1 / F_r  # glucose concentration in recycle stream(mM)
         GLNr = 0.2 * GLN1 * F_1 / F_r  # glutamine concentration in recycle stream(mM)
         LACr = 0.2 * LAC1 * F_1 / F_r  # lactate concentration in recycle stream(mM)
@@ -124,7 +125,7 @@ class UpModelHelper():
         # Average mass of an mAb cell is 150 kDa = 2.4908084e-19 g
         dxdt += [
             (F_in / V1) * (T_in - T) + (Delta_H / (rho * cp)) * mu * Xv1 * 2.4908084e-19 + (U / (V1 * rho * cp)) * (
-                Tc - T)]
+                    Tc - T)]
 
         return dxdt
 
@@ -336,13 +337,13 @@ class DownModelHelper():
         self.num_x_aex = num_c_aex  # Total number of states for AEX
 
         # # Define total state number
-        self.num_x_total = self.num_x_cap_load+self.num_x_cap_elu+self.num_x_loop * \
-            2+self.num_x_cex_load+self.num_x_cex_elu+self.num_x_loop*2+self.num_x_aex
+        self.num_x_total = self.num_x_cap_load + self.num_x_cap_elu + self.num_x_loop * \
+                           2 + self.num_x_cex_load + self.num_x_cex_elu + self.num_x_loop * 2 + self.num_x_aex
         self.num_x_1 = self.num_x_cap_load
-        self.num_x_2 = self.num_x_cap_elu+self.num_x_loop
-        self.num_x_3 = self.num_x_loop+self.num_x_cex_load
-        self.num_x_4 = self.num_x_cex_elu+self.num_x_loop
-        self.num_x_5 = self.num_x_loop+self.num_x_aex
+        self.num_x_2 = self.num_x_cap_elu + self.num_x_loop
+        self.num_x_3 = self.num_x_loop + self.num_x_cex_load
+        self.num_x_4 = self.num_x_cex_elu + self.num_x_loop
+        self.num_x_5 = self.num_x_loop + self.num_x_aex
         self.s1 = 0
         self.e1 = self.num_x_1
         self.e2 = self.e1 + self.num_x_2
@@ -351,14 +352,14 @@ class DownModelHelper():
         self.e5 = self.e4 + self.num_x_5
 
         # # Define sizes of columns
-        self.vol_cap = 2*50000  # ml
-        self.len_cap = 5*4  # cm
-        self.vol_cex = 1*50000  # ml
-        self.len_cex = 2.5*4  # cm
-        self.vol_loop = 10*50000  # ml
-        self.len_loop = 150*4  # cm
-        self.vol_aex = 1*50000  # ml
-        self.len_aex = 2.5*4  # cm
+        self.vol_cap = 2 * 50000  # ml
+        self.len_cap = 5 * 4  # cm
+        self.vol_cex = 1 * 50000  # ml
+        self.len_cex = 2.5 * 4  # cm
+        self.vol_loop = 10 * 50000  # ml
+        self.len_loop = 150 * 4  # cm
+        self.vol_aex = 1 * 50000  # ml
+        self.len_aex = 2.5 * 4  # cm
 
     def capture_load(self, t, x, u):
         # # Capture model
@@ -438,7 +439,7 @@ class DownModelHelper():
         r[:, k] = (k + 1) * dr  # particle radius
 
         dcp2[:, k] = ((((k + 2) * dr) ** 2) * dcp[:, k + 1] - (
-            ((k + 1) * dr) ** 2 * dcp[:, k])) / dr
+                ((k + 1) * dr) ** 2 * dcp[:, k])) / dr
         cp_rp = np.reshape(cp_rp, [self.num_z_cap_load, 1])
 
         # # absorbed mAb concentration (mg/ml)
@@ -455,8 +456,8 @@ class DownModelHelper():
         return dxdt
 
     def cap_vi(self, t, x, u):
-        x1 = x[0:self.num_z_cap_elu*3]
-        x2 = x[self.num_z_cap_elu*3:]
+        x1 = x[0:self.num_z_cap_elu * 3]
+        x2 = x[self.num_z_cap_elu * 3:]
         # # Capture column - elution mode ------------------------------------------------------------------------------
         x_reshape = np.reshape(x1, (self.num_z_cap_elu, 1 + 1 + 1))
         c = x_reshape[:, 0]
@@ -695,7 +696,7 @@ class DownModelHelper():
         r[:, k] = (k + 1) * dr  # particle radius
 
         dcp2[:, k] = ((((k + 2) * dr) ** 2) * dcp[:, k + 1] - (
-            ((k + 1) * dr) ** 2 * dcp[:, k])) / dr
+                ((k + 1) * dr) ** 2 * dcp[:, k])) / dr
         cp_rp = np.reshape(cp_rp, [self.num_z_cap_load, 1])
 
         # # absorbed mAb concentration (mg/ml)
@@ -713,8 +714,8 @@ class DownModelHelper():
         return dxdt_
 
     def cex_hl(self, t, x, u):
-        x1 = x[0:self.num_z_cap_elu*3]
-        x2 = x[self.num_z_cap_elu*3:]
+        x1 = x[0:self.num_z_cap_elu * 3]
+        x2 = x[self.num_z_cap_elu * 3:]
         # # CEX elution:
         x_reshape = np.reshape(x1, (self.num_z_cex_elu, 1 + 1 + 1))
         c = x_reshape[:, 0]
@@ -941,11 +942,12 @@ class DownModelHelper():
             xk = sol['y'][:, -1]
             self.x_all[i, :] = xk
 
-            self.current_time = i*self.delta_t
+            self.current_time = i * self.delta_t
             # switchConfig = self.controller(self.current_time)
-            switchConfig = self.capacity_controller(np.concatenate((xk,self.u_all[i-1],np.array([i*self.delta_t]))))
+            switchConfig = self.capacity_controller(
+                np.concatenate((xk, self.u_all[i - 1], np.array([i * self.delta_t]))))
             if switchConfig == True:
-                self.x_all = self.x_all[:i+1,:]  # Truncate the redundant rows
+                self.x_all = self.x_all[:i + 1, :]  # Truncate the redundant rows
                 return self.x_all
 
     def time_controller(self, time):
@@ -954,10 +956,10 @@ class DownModelHelper():
         else:
             switchConfig = False
         return switchConfig
-    
-    def capacity_controller(self, x): # x of shape (2+1950,) TODO: change switchConfig to -1 or 1?
+
+    def capacity_controller(self, x):  # x of shape (2+1950,) TODO: change switchConfig to -1 or 1?
         capacity = 2708225  # [mg] Here we use the saturation value. In reality, we should use a capacity way less than this value.
-        currentCapacity = (20000*self.delta_t+x[-1])*x[-2]/2*x[-3]
+        currentCapacity = (20000 * self.delta_t + x[-1]) * x[-2] / 2 * x[-3]
         if currentCapacity >= capacity:
             switchConfig = True
         else:
@@ -974,7 +976,7 @@ class UtilsHelper():
              2153.182989734778, 37.00000037001692],
             dtype=np.float64)
         self.default_uss = np.array([106.48427001910824, 106.78424161213647, 0.3, 106.48427001910824,
-                                    1999.9999883978342, 155.14417790682387, 36.996284854484735], dtype=np.float64)
+                                     1999.9999883978342, 155.14417790682387, 36.996284854484735], dtype=np.float64)
 
     def save_results(self, t, X, U, res_dir='results'):
         np.save(os.path.join(res_dir, 't'), t)
@@ -1353,15 +1355,15 @@ class UtilsHelper():
         # * for now, initialize the 3rd state, cs, as 0.9
         num_x_layer_load = 13  # number of states per layer in load mode
         num_x_layer_elu = 3  # number of states per layer in elution mode
-        num_z = int(x_load.size/num_x_layer_load)  # number of layers in load mode
-        x_elu = np.zeros((num_z*3,))  # number of states in elution mode
+        num_z = int(x_load.size / num_x_layer_load)  # number of layers in load mode
+        x_elu = np.zeros((num_z * 3,))  # number of states in elution mode
         for i in range(num_z):
-            c = x_load[i*num_x_layer_load+0]  # pick first state
-            q = x_load[i*num_x_layer_load+11] + x_load[i*num_x_layer_load+12]  # add two q
+            c = x_load[i * num_x_layer_load + 0]  # pick first state
+            q = x_load[i * num_x_layer_load + 11] + x_load[i * num_x_layer_load + 12]  # add two q
             cs = 0.9  # assign 0.9 to cs
-            x_elu[i*num_x_layer_elu+0] = c
-            x_elu[i*num_x_layer_elu+1] = q
-            x_elu[i*num_x_layer_elu+2] = cs
+            x_elu[i * num_x_layer_elu + 0] = c
+            x_elu[i * num_x_layer_elu + 1] = q
+            x_elu[i * num_x_layer_elu + 2] = cs
         return x_elu
 
     def visualize_results_down(self, X, key):

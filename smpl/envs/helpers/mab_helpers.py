@@ -1,11 +1,12 @@
-import numpy as np
-import mpctools as mpc
-import casadi as cs
 import copy
-from tqdm import tqdm
-from scipy import integrate
-import matplotlib.pyplot as plt
 import os
+
+import casadi as cs
+import matplotlib.pyplot as plt
+import mpctools as mpc
+import numpy as np
+from scipy import integrate
+from tqdm import tqdm
 
 
 class ControllerHelper:
@@ -18,18 +19,22 @@ class ControllerHelper:
                  uscale,
                  xss,
                  uss,
-                 solver_opts = None,
-                 casadi_opts = None):
+                 solver_opts=None,
+                 casadi_opts=None):
         self.nx_list = nx_list
         self.nu_list = nu_list
-        self.Nx_up = nx_list[0]; self.Nx_buffer = nx_list[1]; self.Nx_down = nx_list[2]
+        self.Nx_up = nx_list[0];
+        self.Nx_buffer = nx_list[1];
+        self.Nx_down = nx_list[2]
         self.Nx = sum(nx_list)
-        self.Nu_up = nu_list[0]; self.Nu_buffer = nu_list[1]; self.Nu_down = nu_list[2]
+        self.Nu_up = nu_list[0];
+        self.Nu_buffer = nu_list[1];
+        self.Nu_down = nu_list[2]
         self.Nu = sum(nu_list)
         self.num_sim = num_sim
         self.dt_itgl = dt_itgl
         self.dt_spl = dt_spl
-        self.dt_ratio = int(self.dt_spl/self.dt_itgl)
+        self.dt_ratio = int(self.dt_spl / self.dt_itgl)
         self.xscale = xscale
         self.uscale = uscale
         self.xss = xss
@@ -42,11 +47,11 @@ class ControllerHelper:
 
     def init_model_helper(self):
         self.model_helper = ModelHelper(nx_list=self.nx_list,
-                                           nu_list=self.nu_list,
-                                           xscale=self.xscale,
-                                           uscale=self.uscale,
-                                           xss=self.xss,
-                                           uss=self.uss)
+                                        nu_list=self.nu_list,
+                                        xscale=self.xscale,
+                                        uscale=self.uscale,
+                                        xss=self.xss,
+                                        uss=self.uss)
         self.up_model_helper = UpModelHelper(Nx=self.Nx_up,
                                              Nu=self.Nu_up,
                                              xss=self.xss[:self.Nx_up],
@@ -67,10 +72,12 @@ class ControllerHelper:
         # Plant. Consider this as the plant in reality. It is not used in controller
         self.plant = self._build_plant()
         # MPC
-        self.mpc_cont = self._build_mpc_up(Q, R, N, self.dt_spl, self.xss[:self.Nx_up], self.uss[:self.Nu_up], self.xscale[:self.Nx_up], self.uscale[:self.Nu_up])
+        self.mpc_cont = self._build_mpc_up(Q, R, N, self.dt_spl, self.xss[:self.Nx_up], self.uss[:self.Nu_up],
+                                           self.xscale[:self.Nx_up], self.uscale[:self.Nu_up])
         self.mpc_cont.initialize(casadioptions=casadi_opts, solveroptions=solver_opts)
         # EMPC
-        self.empc_cont = self._build_empc_up(N, self.dt_spl, self.xss[:self.Nx_up], self.uss[:self.Nu_up], self.xscale[:self.Nx_up], self.uscale[:self.Nu_up])
+        self.empc_cont = self._build_empc_up(N, self.dt_spl, self.xss[:self.Nx_up], self.uss[:self.Nu_up],
+                                             self.xscale[:self.Nx_up], self.uscale[:self.Nu_up])
         self.empc_cont.initialize(casadioptions=casadi_opts, solveroptions=solver_opts)
         return self.plant, self.mpc_cont, self.empc_cont
 
@@ -220,7 +227,8 @@ class ControllerHelper:
 
     def _simulation(self, xk, uk):
         # Switch configuration
-        if uk[-1] == 1:  # 1 means switch configuration #TODO: change to switch configuration. relax requirements! when switch, t=0 is both full and empty (A is full B is empty. A and B are both valid data points at t=0)
+        if uk[
+            -1] == 1:  # 1 means switch configuration #TODO: change to switch configuration. relax requirements! when switch, t=0 is both full and empty (A is full B is empty. A and B are both valid data points at t=0)
             print(xk[-1] * uk[7], 'mg of mAb is captured. Switching the column')
             xk[19:-1] = 0  # (1950). Set state vector of downstream capture column to 0
             xk[-1] = 0  # In new column, accumulated mab is 0
@@ -229,7 +237,7 @@ class ControllerHelper:
         xkp1 = self.plant.sim(xk, uk)
         # update accumulated mAb
         xkp1[-1] += self.dt_itgl * (
-                    xkp1[19] - xkp1[-14])  # difference between inlet concentration and outlet concentration
+                xkp1[19] - xkp1[-14])  # difference between inlet concentration and outlet concentration
         return xkp1
 
     def _control(self, x, u, control, k):
@@ -283,14 +291,14 @@ class ControllerHelper:
         p = p_ss + Kc * (y_ss - y)
         return p
 
-    def _switcher(self, x_down): # change when Cout has the danger concentration.
+    def _switcher(self, x_down):  # change when Cout has the danger concentration.
         if x_down[-14] >= self.xss[18] * 0.01:  # 1% of breakthrough curve
             switch = 1  # Column is saturated, now switch column
         else:
             switch = 0
         return switch
 
-    def _switcher2(self, x_down): # change when full.
+    def _switcher2(self, x_down):  # change when full.
         if x_down[-1] >= self.sat:
             switch = 1  # Column is saturated, now switch column
         else:
@@ -301,9 +309,13 @@ class ControllerHelper:
 # model helper
 class ModelHelper:
     def __init__(self, nx_list, nu_list, xscale, uscale, xss, uss):
-        self.Nx_up = nx_list[0]; self.Nx_buffer = nx_list[1]; self.Nx_down = nx_list[2]
+        self.Nx_up = nx_list[0];
+        self.Nx_buffer = nx_list[1];
+        self.Nx_down = nx_list[2]
         self.Nx = sum(nx_list)
-        self.Nu_up = nu_list[0]; self.Nu_buffer = nu_list[1]; self.Nu_down = nu_list[2]
+        self.Nu_up = nu_list[0];
+        self.Nu_buffer = nu_list[1];
+        self.Nu_down = nu_list[2]
         self.Nu = sum(nu_list)
         self.xscale = xscale
         self.uscale = uscale
@@ -323,8 +335,8 @@ class ModelHelper:
         num_q1_cap_load = self.num_z_cap_load  # Number of q1 states
         num_q2_cap_load = self.num_z_cap_load  # Number of q2 states
         self.num_x_cap_load = num_c_cap_load + num_cp_cap_load + num_q1_cap_load + num_q2_cap_load  # Total number of states
-        self.vol_cap = 2*50000/1000  # L
-        self.len_cap = 5*4/10  # dm
+        self.vol_cap = 2 * 50000 / 1000  # L
+        self.len_cap = 5 * 4 / 10  # dm
 
         # Defined at the outside of __init__
         self.plant = None
@@ -356,7 +368,7 @@ class ModelHelper:
         alpha1 = 3.4e-13 / 60  # constants of glutamine maintenance coefficient (mM L/cell/min)
         alpha2 = 4  # constants of glutamine maintenance coefficient (mM)
         mu_max = (0.0016 * x[16] - 0.0308) * 5 / 60  # 0.058 * 5  # maximum specific growth rate (min^(-1))
-        mu_dmax = 0.06/60  # (-0.0045 * x[16] + 0.1682) / 60  # 0.06    # maximum specific death rate (min^(-1))
+        mu_dmax = 0.06 / 60  # (-0.0045 * x[16] + 0.1682) / 60  # 0.06    # maximum specific death rate (min^(-1))
         m_mabx = 6.59e-10 / 60  # constant production of mAb by viable cells (mg/Cell/min)
 
         # Add new parameters -- Ben
@@ -368,7 +380,7 @@ class ModelHelper:
 
         # Buffer tank
         D_bf = 5  # Diameter of the tank (dm)
-        L_bf = D_bf*5  # Diameter of the tank (dm)
+        L_bf = D_bf * 5  # Diameter of the tank (dm)
         Ac_bf = np.pi * (D_bf / 2) ** 2  # Cross-sectional area (dm^2)
         V_bf = Ac_bf * L_bf  # Volume of the tank (L)
 
@@ -440,7 +452,8 @@ class ModelHelper:
         c_bf = x[18]  # Concentration of mAb in the buffer tank (mg/L)
         # All states of capture column
         x_column = x[19:-1]
-        x_reshape = cs.reshape(x_column, (1 + self.num_r + 1 + 1, self.num_z_cap_load))  # Convert from Nx * 1  to Nz *  ( c + cp + q1 + q2)
+        x_reshape = cs.reshape(x_column, (
+        1 + self.num_r + 1 + 1, self.num_z_cap_load))  # Convert from Nx * 1  to Nz *  ( c + cp + q1 + q2)
         x_reshape = x_reshape.T  # Transpose to get correct shape
         # Capture column
         c = x_reshape[:, 0]  # mAb concentration in the mobile phase (mg/L)
@@ -495,7 +508,7 @@ class ModelHelper:
         # Average mass of an mAb cell is 150 kDa = 2.4908084e-19 g
         dxdt += [
             (F_in / V1) * (T_in - T) + (Delta_H / (rho * cp_up)) * mu * Xv1 * 2.4908084e-19 + (
-                        U / (V1 * rho * cp_up)) * (
+                    U / (V1 * rho * cp_up)) * (
                     Tc - T)]
 
         # Buffer tank:
@@ -570,6 +583,7 @@ class ModelHelper:
     def xdot_scale(self, x, u):
         return cs.vertcat(*self.xdot(x * cs.DM(self.xscale), u * cs.DM(self.uscale))) / cs.DM(self.xscale)
 
+
 class UpModelHelper:
     def __init__(self, Nx, Nu, xss, uss, xscale, uscale):
         self.Nx = Nx
@@ -596,7 +610,7 @@ class UpModelHelper:
         alpha1 = 3.4e-13 / 60  # constants of glutamine maintenance coefficient (mM L/cell/min)
         alpha2 = 4  # constants of glutamine maintenance coefficient (mM)
         mu_max = (0.0016 * x[16] - 0.0308) * 5 / 60  # 0.058 * 5  # maximum specific growth rate (min^(-1))
-        mu_dmax = 0.06/60  #(-0.0045 * x[16] + 0.1682) / 60  # 0.06    # maximum specific death rate (min^(-1))
+        mu_dmax = 0.06 / 60  # (-0.0045 * x[16] + 0.1682) / 60  # 0.06    # maximum specific death rate (min^(-1))
         m_mabx = 6.59e-10 / 60  # constant production of mAb by viable cells (mg/Cell/min)
 
         # Add new parameters -- Ben
@@ -694,9 +708,10 @@ class UpModelHelper:
 
 
 # utilities helper
-xscale = np.concatenate((np.array([3e10, 5e10, 5e3, 50, 200, 50, 150, 3000, 2e10, 3e10,5000, 100,
-                   250, 100, 200, 3000, 37.0]), np.array([3, 200]), np.ones(1951)))
-uscale = np.concatenate((np.array([3000/60, 3000/60, 3000/60, 3000/60, 2000, 2000, 50]), np.array([3000/60]), np.ones(1)))
+xscale = np.concatenate((np.array([3e10, 5e10, 5e3, 50, 200, 50, 150, 3000, 2e10, 3e10, 5000, 100,
+                                   250, 100, 200, 3000, 37.0]), np.array([3, 200]), np.ones(1951)))
+uscale = np.concatenate(
+    (np.array([3000 / 60, 3000 / 60, 3000 / 60, 3000 / 60, 2000, 2000, 50]), np.array([3000 / 60]), np.ones(1)))
 
 
 class UtilsHelper:
@@ -704,14 +719,14 @@ class UtilsHelper:
         xss = np.load(os.path.join(res_dir, 'xss.npy'))
         uss = np.load(os.path.join(res_dir, 'uss.npy'))
         return xss, uss
-    
+
     def load_bounds(self, res_dir='smpl/datasets/mabenv'):
         ulb = np.load(os.path.join(res_dir, 'ulb.npy'))
         uub = np.load(os.path.join(res_dir, 'uub.npy'))
         xlb = np.load(os.path.join(res_dir, 'xlb.npy'))
         xub = np.load(os.path.join(res_dir, 'xub.npy'))
         return ulb, uub, xlb, xub
-    
+
     def modify_ss(self, xss, uss):
         """ If the modification is not required, simply return xss and uss as they are """
         c_inss = xss[14]  # Inlet concentration of mAb (mg/L)
@@ -745,11 +760,11 @@ class UtilsHelper:
         Xi = []  # Plant integration
         Xie = []
         # Initial states and inputs
-        x0 = xss/xscale*0.95 # stochastic! up and down 30% *0.7 or *1.3 #TODO:
-        u0 = uss/uscale
+        x0 = xss / xscale * 0.95  # stochastic! up and down 30% *0.7 or *1.3 #TODO:
+        u0 = uss / uscale
         Xm += [x0]  # Scaled
         Xe += [x0]  # Scaled
-        Xs += [xss] # Unscaled
+        Xs += [xss]  # Unscaled
         Xi += [x0]
         Xie += [x0]
         return Xm, Um, Xe, Ue, Xs, Us, Xi, Xie, u0, t
@@ -1059,62 +1074,62 @@ class UtilsHelper:
         # Downstream
         plt.figure(11)
         plt.subplot(231)
-        plt.plot(t, Xm[:, 19+13 * 1 + 1])
-        plt.plot(t, Xm[:, 19+13 * 75 + 1])
-        plt.plot(t, Xm[:, 19+13 * 149 + 1])
-        plt.plot(t, Xe[:, 19+13 * 1 + 1], linestyle='--')
-        plt.plot(t, Xe[:, 19+13 * 75 + 1], linestyle='--')
-        plt.plot(t, Xe[:, 19+13 * 149 + 1], linestyle='--')
+        plt.plot(t, Xm[:, 19 + 13 * 1 + 1])
+        plt.plot(t, Xm[:, 19 + 13 * 75 + 1])
+        plt.plot(t, Xm[:, 19 + 13 * 149 + 1])
+        plt.plot(t, Xe[:, 19 + 13 * 1 + 1], linestyle='--')
+        plt.plot(t, Xe[:, 19 + 13 * 75 + 1], linestyle='--')
+        plt.plot(t, Xe[:, 19 + 13 * 149 + 1], linestyle='--')
         # plt.ylim((0.88, 0.91))
         plt.ylabel("$c_p$ (mg/L) r=1")
         plt.xlabel("Time (min)")
         plt.subplot(232)
-        plt.plot(t, Xm[:, 19+13 * 1 + 5])
-        plt.plot(t, Xm[:, 19+13 * 75 + 5])
-        plt.plot(t, Xm[:, 19+13 * 149 + 5])
-        plt.plot(t, Xe[:, 19+13 * 1 + 5], linestyle='--')
-        plt.plot(t, Xe[:, 19+13 * 75 + 5], linestyle='--')
-        plt.plot(t, Xe[:, 19+13 * 149 + 5], linestyle='--')
+        plt.plot(t, Xm[:, 19 + 13 * 1 + 5])
+        plt.plot(t, Xm[:, 19 + 13 * 75 + 5])
+        plt.plot(t, Xm[:, 19 + 13 * 149 + 5])
+        plt.plot(t, Xe[:, 19 + 13 * 1 + 5], linestyle='--')
+        plt.plot(t, Xe[:, 19 + 13 * 75 + 5], linestyle='--')
+        plt.plot(t, Xe[:, 19 + 13 * 149 + 5], linestyle='--')
         # plt.ylim((0.88, 0.91))
         plt.ylabel("$c_p$ (mg/L) r=5")
         plt.xlabel("Time (min)")
         plt.subplot(233)
-        plt.plot(t, Xm[:, 19+13 * 1 + 10])
-        plt.plot(t, Xm[:, 19+13 * 75 + 10])
-        plt.plot(t, Xm[:, 19+13 * 149 + 10])
-        plt.plot(t, Xe[:, 19+13 * 1 + 10], linestyle='--')
-        plt.plot(t, Xe[:, 19+13 * 75 + 10], linestyle='--')
-        plt.plot(t, Xe[:, 19+13 * 149 + 10], linestyle='--')
+        plt.plot(t, Xm[:, 19 + 13 * 1 + 10])
+        plt.plot(t, Xm[:, 19 + 13 * 75 + 10])
+        plt.plot(t, Xm[:, 19 + 13 * 149 + 10])
+        plt.plot(t, Xe[:, 19 + 13 * 1 + 10], linestyle='--')
+        plt.plot(t, Xe[:, 19 + 13 * 75 + 10], linestyle='--')
+        plt.plot(t, Xe[:, 19 + 13 * 149 + 10], linestyle='--')
         # plt.ylim((0.88, 0.91))
         plt.ylabel("$c_p$ (mg/L) r=10")
         plt.xlabel("Time (min)")
         plt.subplot(234)
-        plt.plot(t, Xm[:, 19+13 * 1 + 0])
-        plt.plot(t, Xm[:, 19+13 * 75 + 0])
-        plt.plot(t, Xm[:, 19+13 * 149 + 0])
-        plt.plot(t, Xe[:, 19+13 * 1 + 0], linestyle='--')
-        plt.plot(t, Xe[:, 19+13 * 75 + 0], linestyle='--')
-        plt.plot(t, Xe[:, 19+13 * 149 + 0], linestyle='--')
+        plt.plot(t, Xm[:, 19 + 13 * 1 + 0])
+        plt.plot(t, Xm[:, 19 + 13 * 75 + 0])
+        plt.plot(t, Xm[:, 19 + 13 * 149 + 0])
+        plt.plot(t, Xe[:, 19 + 13 * 1 + 0], linestyle='--')
+        plt.plot(t, Xe[:, 19 + 13 * 75 + 0], linestyle='--')
+        plt.plot(t, Xe[:, 19 + 13 * 149 + 0], linestyle='--')
         # plt.ylim((0.88, 0.91))
         plt.ylabel("$[mAb]_{column}$ (mg/L)")
         plt.xlabel("Time (min)")
         plt.subplot(235)
-        plt.plot(t, Xm[:, 19+13 * 1 + 11])
-        plt.plot(t, Xm[:, 19+13 * 75 + 11])
-        plt.plot(t, Xm[:, 19+13 * 149 + 11])
-        plt.plot(t, Xe[:, 19+13 * 1 + 11], linestyle='--')
-        plt.plot(t, Xe[:, 19+13 * 75 + 11], linestyle='--')
-        plt.plot(t, Xe[:, 19+13 * 149 + 11], linestyle='--')
+        plt.plot(t, Xm[:, 19 + 13 * 1 + 11])
+        plt.plot(t, Xm[:, 19 + 13 * 75 + 11])
+        plt.plot(t, Xm[:, 19 + 13 * 149 + 11])
+        plt.plot(t, Xe[:, 19 + 13 * 1 + 11], linestyle='--')
+        plt.plot(t, Xe[:, 19 + 13 * 75 + 11], linestyle='--')
+        plt.plot(t, Xe[:, 19 + 13 * 149 + 11], linestyle='--')
         # plt.ylim((32, 35))
         plt.ylabel("$q_1$ (mg/L)")
         plt.xlabel("Time (min)")
         plt.subplot(236)
-        plt.plot(t, Xm[:, 19+13 * 1 + 12])
-        plt.plot(t, Xm[:, 19+13 * 75 + 12])
-        plt.plot(t, Xm[:, 19+13 * 149 + 12])
-        plt.plot(t, Xe[:, 19+13 * 1 + 12], linestyle='--')
-        plt.plot(t, Xe[:, 19+13 * 75 + 12], linestyle='--')
-        plt.plot(t, Xe[:, 19+13 * 149 + 12], linestyle='--')
+        plt.plot(t, Xm[:, 19 + 13 * 1 + 12])
+        plt.plot(t, Xm[:, 19 + 13 * 75 + 12])
+        plt.plot(t, Xm[:, 19 + 13 * 149 + 12])
+        plt.plot(t, Xe[:, 19 + 13 * 1 + 12], linestyle='--')
+        plt.plot(t, Xe[:, 19 + 13 * 75 + 12], linestyle='--')
+        plt.plot(t, Xe[:, 19 + 13 * 149 + 12], linestyle='--')
         # plt.ylim((71, 74))
         plt.ylabel("$q_2$ (mg/L)")
         plt.xlabel("Time (min)")
@@ -1240,44 +1255,44 @@ class UtilsHelper:
 
         plt.figure(11)
         plt.subplot(231)
-        plt.plot(t, X[:, 19+13 * 1 + 1])
-        plt.plot(t, X[:, 19+13 * 75 + 1])
-        plt.plot(t, X[:, 19+13 * 149 + 1])
+        plt.plot(t, X[:, 19 + 13 * 1 + 1])
+        plt.plot(t, X[:, 19 + 13 * 75 + 1])
+        plt.plot(t, X[:, 19 + 13 * 149 + 1])
         # plt.ylim((0.88, 0.91))
         plt.ylabel("$c_p$ (mg/L) r=1")
         plt.xlabel("t (min)")
         plt.subplot(232)
-        plt.plot(t, X[:, 19+13 * 1 + 5])
-        plt.plot(t, X[:, 19+13 * 75 + 5])
-        plt.plot(t, X[:, 19+13 * 149 + 5])
+        plt.plot(t, X[:, 19 + 13 * 1 + 5])
+        plt.plot(t, X[:, 19 + 13 * 75 + 5])
+        plt.plot(t, X[:, 19 + 13 * 149 + 5])
         # plt.ylim((0.88, 0.91))
         plt.ylabel("$c_p$ (mg/L) r=5")
         plt.xlabel("t (min)")
         plt.subplot(233)
-        plt.plot(t, X[:, 19+13 * 1 + 10])
-        plt.plot(t, X[:, 19+13 * 75 + 10])
-        plt.plot(t, X[:, 19+13 * 149 + 10])
+        plt.plot(t, X[:, 19 + 13 * 1 + 10])
+        plt.plot(t, X[:, 19 + 13 * 75 + 10])
+        plt.plot(t, X[:, 19 + 13 * 149 + 10])
         # plt.ylim((0.88, 0.91))
         plt.ylabel("$c_p$ (mg/L) r=10")
         plt.xlabel("t (min)")
         plt.subplot(234)
-        plt.plot(t, X[:, 19+13 * 1 + 0])
-        plt.plot(t, X[:, 19+13 * 75 + 0])
-        plt.plot(t, X[:, 19+13 * 149 + 0])
+        plt.plot(t, X[:, 19 + 13 * 1 + 0])
+        plt.plot(t, X[:, 19 + 13 * 75 + 0])
+        plt.plot(t, X[:, 19 + 13 * 149 + 0])
         # plt.ylim((0.88, 0.91))
         plt.ylabel("$[mAb]_{column}$ (mg/L)")
         plt.xlabel("t (min)")
         plt.subplot(235)
-        plt.plot(t, X[:, 19+13 * 1 + 11])
-        plt.plot(t, X[:, 19+13 * 75 + 11])
-        plt.plot(t, X[:, 19+13 * 149 + 11])
+        plt.plot(t, X[:, 19 + 13 * 1 + 11])
+        plt.plot(t, X[:, 19 + 13 * 75 + 11])
+        plt.plot(t, X[:, 19 + 13 * 149 + 11])
         # plt.ylim((32, 35))
         plt.ylabel("$q_1$ (mg/L)")
         plt.xlabel("t (min)")
         plt.subplot(236)
-        plt.plot(t, X[:, 19+13 * 1 + 12])
-        plt.plot(t, X[:, 19+13 * 75 + 12])
-        plt.plot(t, X[:, 19+13 * 149 + 12])
+        plt.plot(t, X[:, 19 + 13 * 1 + 12])
+        plt.plot(t, X[:, 19 + 13 * 75 + 12])
+        plt.plot(t, X[:, 19 + 13 * 149 + 12])
         # plt.ylim((71, 74))
         plt.ylabel("$q_2$ (mg/L)")
         plt.xlabel("t (min)")

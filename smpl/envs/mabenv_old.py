@@ -1,14 +1,15 @@
-from .utils import *
 import mpctools as mpc
 from scipy import integrate
+
 from .helpers.mab_helpers_old import xscale, uscale, UpModelHelper, DownModelHelper, UtilsHelper
+from .utils import *
 
 
 class MAbUpstreamMPC:
     def __init__(
             self, action_dim=7, observation_dim=17,
             dt=1, ss_dir=None) -> None:
-        
+
         self.action_dim = action_dim
         self.observation_dim = observation_dim
         self.dt = dt
@@ -23,9 +24,9 @@ class MAbUpstreamMPC:
         solveroptions = {'tol': 1E-5}
         # change ipopt.linear_solver to ma27 for faster and robust computation. This needs to be installed on your system
         casadioptions = {'ipopt.linear_solver': 'mumps',
-                            'verbose': False, 'ipopt.print_level': 0, 'ipopt.tol': 1E-4}
+                         'verbose': False, 'ipopt.print_level': 0, 'ipopt.tol': 1E-4}
         self.mpc_cont.initialize(casadioptions=casadioptions, solveroptions=solveroptions)
-        
+
     def predict(self, o):
         self.mpc_cont.fixvar("x", 0, o)
         self.mpc_cont.solve()
@@ -35,12 +36,13 @@ class MAbUpstreamMPC:
             self.mpc_cont.saveguess()
         ukm = np.squeeze(self.mpc_cont.var["u", 0])  # ukm is mpc's action
         return ukm
-    
+
+
 class MAbUpstreamEMPC:
     def __init__(
             self, action_dim=7, observation_dim=17,
             dt=1, ss_dir=None) -> None:
-        
+
         self.action_dim = action_dim
         self.observation_dim = observation_dim
         self.dt = dt
@@ -54,13 +56,13 @@ class MAbUpstreamEMPC:
         solveroptions = {'tol': 1E-5}
         # change ipopt.linear_solver to ma27 for faster and robust computation. This needs to be installed on your system
         casadioptions = {'ipopt.linear_solver': 'mumps',
-                            'verbose': False, 'ipopt.print_level': 0, 'ipopt.tol': 1E-4}
+                         'verbose': False, 'ipopt.print_level': 0, 'ipopt.tol': 1E-4}
         # initialize empc
         self.empc_cont = self.upstream.build_empc_controller(self.xss, self.uss, N, dt)
         self.empc_cont.initialize(casadioptions=casadioptions, solveroptions=solveroptions)
-        
+
     def predict(self, o):
-        
+
         self.empc_cont.fixvar("x", 0, o)
         self.empc_cont.solve()
         if self.empc_cont.stats["status"] != "Solve_Succeeded":
@@ -70,6 +72,7 @@ class MAbUpstreamEMPC:
 
         uke = np.squeeze(self.empc_cont.var["u", 0])
         return uke
+
 
 class MAbUpstreamEnvGym(smplEnvBase):
     def __init__(
@@ -99,13 +102,13 @@ class MAbUpstreamEnvGym(smplEnvBase):
         self.total_reward = 0
         self.done = False
         self.dense_reward = dense_reward
-        
+
         self.normalize = normalize
-        self.debug_mode = debug_mode  
+        self.debug_mode = debug_mode
         self.action_dim = action_dim
         self.observation_dim = observation_dim
-        self.reward_function = reward_function  
-        self.done_calculator = done_calculator  
+        self.reward_function = reward_function
+        self.done_calculator = done_calculator
         self.max_observations = max_observations
         self.min_observations = min_observations
         self.max_actions = max_actions
@@ -113,7 +116,8 @@ class MAbUpstreamEnvGym(smplEnvBase):
         self.observation_name = observation_name
         self.action_name = action_name
         if self.observation_name is None:
-            self.observation_name = ['Xv1', 'Xt1', 'GLC1', 'GLN1', 'LAC1', 'AMM1', 'mAb1', 'V1', 'Xv2', 'Xt2', 'GLC2', 'GLN2', 'LAC2', 'AMM2', 'mAb2', 'V2', 'T']
+            self.observation_name = ['Xv1', 'Xt1', 'GLC1', 'GLN1', 'LAC1', 'AMM1', 'mAb1', 'V1', 'Xv2', 'Xt2', 'GLC2',
+                                     'GLN2', 'LAC2', 'AMM2', 'mAb2', 'V2', 'T']
         if self.action_name is None:
             self.action_name = ['F_in', 'F_1', 'F_r', 'F_2', 'GLC_in', 'GLN_in', 'Tc']
         self.np_dtype = np_dtype
@@ -129,9 +133,9 @@ class MAbUpstreamEnvGym(smplEnvBase):
         self.utils_helper = UtilsHelper()
         self.xss, self.uss = self.utils_helper.load_ss(res_dir=ss_dir)
         self.steady_observations = self.xss / xscale
-        self.steady_actions  = self.uss / uscale
+        self.steady_actions = self.uss / uscale
         self.plant = mpc.DiscreteSimulator(self.upstream.xdot_scale, self.dt, [
-                                           self.observation_dim, self.action_dim], ["x", "u"])
+            self.observation_dim, self.action_dim], ["x", "u"])
         Q = np.eye(self.observation_dim)
         R = np.eye(self.action_dim)
         N = 300
@@ -178,7 +182,6 @@ class MAbUpstreamEnvGym(smplEnvBase):
             reward = xx[6] * uu[1] + current_observation[14] * uu[3]
         else:
             raise ValueError("standard_reward_style should be either 'setpoint' or 'productivity'")
-            
 
         reward = max(self.error_reward, reward)  # reward cannot be smaller than the error_reward
         if self.debug_mode:
@@ -224,8 +227,8 @@ class MAbUpstreamEnvGym(smplEnvBase):
         Returns:
             [np.ndarray]: [description]
         """        """"""
-        low = self.xss/xscale * lower_bound
-        up = self.xss/xscale * upper_bound
+        low = self.xss / xscale * lower_bound
+        up = self.xss / xscale * upper_bound
         return np.random.uniform(low, up)
 
     def reset(self, initial_state=None, normalize=None):
@@ -283,7 +286,7 @@ class MAbUpstreamEnvGym(smplEnvBase):
             action, _, _ = denormalize_spaces(action, self.max_actions, self.min_actions)
 
         # TOMODIFY: proceed your environment here and collect the observation.
-        self.t += [self.step_count*self.dt]
+        self.t += [self.step_count * self.dt]
         if self.init_mpc_controllers:
             self.mpc_cont.fixvar("x", 0, self.Xm[self.step_count])
             self.mpc_cont.solve()
@@ -341,7 +344,8 @@ class MAbUpstreamEnvGym(smplEnvBase):
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("error")
             try:
-                observation = self.plant.sim(self.Xm_mycontrol[self.step_count], action) # self.plant.sim returns an observation within range [0, 200]
+                observation = self.plant.sim(self.Xm_mycontrol[self.step_count],
+                                             action)  # self.plant.sim returns an observation within range [0, 200]
             except Exception as e:
                 print("Got Exception/Warning: ", e)
                 observation = self.previous_observation
@@ -509,14 +513,16 @@ class MAbUpstreamEnvGym(smplEnvBase):
                                                                                 initial_states=initial_states,
                                                                                 to_plt=to_plt, plot_dir=plot_dir)
         from warnings import warn
-        warn('The function evaluate_rewards_mean_std_over_episodes is deprecated. Please use report_rewards.', DeprecationWarning, stacklevel=2)
+        warn('The function evaluate_rewards_mean_std_over_episodes is deprecated. Please use report_rewards.',
+             DeprecationWarning, stacklevel=2)
         for n_algo in range(len(algorithms)):
             _, algo_name, _ = algorithms[n_algo]
             rewards_list_curr_algo = rewards_list[n_algo]
             if computer_on_episodes:
                 rewards_mean_over_episodes = []  # rewards_mean_over_episodes[n_epi] is mean of rewards of n_epi
                 for n_epi in range(num_episodes):
-                    if rewards_list_curr_algo[n_epi][-1] == self.error_reward: # if error_reward is provided, self.error_reward is overwritten in self.evalute_algorithms
+                    if rewards_list_curr_algo[n_epi][
+                        -1] == self.error_reward:  # if error_reward is provided, self.error_reward is overwritten in self.evalute_algorithms
                         rewards_mean_over_episodes.append(self.error_reward)
                     else:
                         rewards_mean_over_episodes.append(np.mean(rewards_list_curr_algo[n_epi]))

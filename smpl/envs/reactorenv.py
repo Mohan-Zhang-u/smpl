@@ -10,13 +10,13 @@ import random
 import warnings
 
 import matplotlib.pyplot as plt
+import mpctools as mpc
 import numpy as np
+import torch
 from gym import spaces, Env  # to create an openai-gym environment https://gym.openai.com/
 from mzutils import SimplePriorityQueue
 from scipy.integrate import solve_ivp  # the ode solver
 from tqdm import tqdm
-import torch
-import mpctools as mpc
 
 from .utils import *
 
@@ -40,14 +40,16 @@ class ReactorPID:
     Returns:
         [type]: action.
     """
-    def __init__(self, Kis, steady_state=[0.8778252, 0.659], steady_action=[26.85, 0.1], min_action=[15.0, 0.05], max_action=[35.0, 0.2]):
+
+    def __init__(self, Kis, steady_state=[0.8778252, 0.659], steady_action=[26.85, 0.1], min_action=[15.0, 0.05],
+                 max_action=[35.0, 0.2]):
         self.Kis = Kis
         self.steady_state = steady_state
         self.steady_action = steady_action
         self.len_c = len(steady_action)
         self.min_action = min_action
         self.max_action = max_action
-    
+
     def predict(self, state):
         state = [state[0], state[2]]
         action = []
@@ -55,7 +57,7 @@ class ReactorPID:
             a = self.Kis[i] * (state[i] - self.steady_state[i]) + self.steady_action[i]
             action.append(np.clip(a, self.min_action[i], self.max_action[i]))
         return np.array(action)
-    
+
 
 class ReactorMPC:
     """a simple MPC controller.
@@ -63,75 +65,75 @@ class ReactorMPC:
     Returns:
         [type]: action.
     """
-    def __init__(self, Nt=20, dt=0.1, Q=np.eye(3)*0.1, R=np.eye(2)*0.0, P=np.eye(3)*0.1):
-        self.Nt = Nt    # control and prediction horizons
-        self.dt = dt    # sampling time. Should be the same as the step size in the model
-        self.Q = Q      # weight on the state variables
-        self.R = R      # weight on the input variables
-        self.P = P      # terminal cost weight (optional). set to zero matrix with appropriate dimension
-        self.Nx = 3     # number of state variables
-        self.Nu = 2     # number of input variables
-        self.min_action=[15.0, 0.05]
-        self.max_action=[35.0, 0.2]
+
+    def __init__(self, Nt=20, dt=0.1, Q=np.eye(3) * 0.1, R=np.eye(2) * 0.0, P=np.eye(3) * 0.1):
+        self.Nt = Nt  # control and prediction horizons
+        self.dt = dt  # sampling time. Should be the same as the step size in the model
+        self.Q = Q  # weight on the state variables
+        self.R = R  # weight on the input variables
+        self.P = P  # terminal cost weight (optional). set to zero matrix with appropriate dimension
+        self.Nx = 3  # number of state variables
+        self.Nu = 2  # number of input variables
+        self.min_action = [15.0, 0.05]
+        self.max_action = [35.0, 0.2]
 
         # reactor model
         from smpl.envs.reactorenv import ReactorModel
         self.model = ReactorModel(dt)
-        
-        self.xs = np.array([0.8778252,51.34660837,0.659])   # steady-state state values 
-        self.us = np.array([26.85,0.1])     # steady state input values
+
+        self.xs = np.array([0.8778252, 51.34660837, 0.659])  # steady-state state values
+        self.us = np.array([26.85, 0.1])  # steady state input values
         self.build_controller()
-        
+
     # Define stage cost
     def lfunc(self, x, u):
         dx = x[:self.Nx] - self.xs[:self.Nx]
         du = u[:self.Nu] - self.us[:self.Nu]
-        return mpc.mtimes(dx.T,self.Q,dx) + mpc.mtimes(du.T,self.R,du)
-    
+        return mpc.mtimes(dx.T, self.Q, dx) + mpc.mtimes(du.T, self.R, du)
+
     # define terminal weight
     def Pffunc(self, x):
         dx = x[:self.Nx] - self.xs[:self.Nx]
-        return mpc.mtimes(dx.T,self.P,dx)
-    
+        return mpc.mtimes(dx.T, self.P, dx)
+
     # build the mpc controller using mpctools
     def build_controller(self):
-        
         # stage and terminal cost in casadi symbolic form
-        l = mpc.getCasadiFunc(self.lfunc, [self.Nx,self.Nu], ["x","u"], funcname="l")
+        l = mpc.getCasadiFunc(self.lfunc, [self.Nx, self.Nu], ["x", "u"], funcname="l")
         Pf = mpc.getCasadiFunc(self.Pffunc, [self.Nx], ["x"], funcname="Pf")
-        
+
         # Create casadi function/model to be used in the controller
-        ode_casadi = mpc.getCasadiFunc(self.model.ode, [self.Nx, self.Nu], ["x","u"], funcname="odef")
+        ode_casadi = mpc.getCasadiFunc(self.model.ode, [self.Nx, self.Nu], ["x", "u"], funcname="odef")
 
         # Set c to a value greater than one to use collocation
         contargs = dict(
-                N = {"t":self.Nt, "x":self.Nx, "u":self.Nu, "c":3},
-                verbosity=0,    # set verbosity to a number > 0 for debugging purposes otherwise use 0.
-                l=l,
-                x0=self.xs,
-                Pf=Pf,
-                ub = {"u":self.max_action}, # Change upper bounds 
-                lb = {"u":self.min_action},	# Change lower bounds 
-                guess = {
-                        "x":self.xs[:self.Nx],
-                        "u":self.us[:self.Nu]
-                        },
-                )
-        
+            N={"t": self.Nt, "x": self.Nx, "u": self.Nu, "c": 3},
+            verbosity=0,  # set verbosity to a number > 0 for debugging purposes otherwise use 0.
+            l=l,
+            x0=self.xs,
+            Pf=Pf,
+            ub={"u": self.max_action},  # Change upper bounds
+            lb={"u": self.min_action},  # Change lower bounds
+            guess={
+                "x": self.xs[:self.Nx],
+                "u": self.us[:self.Nu]
+            },
+        )
+
         # create MPC controller
-        self.mpc = mpc.nmpc(f=ode_casadi,Delta=self.dt,**contargs)
-    
+        self.mpc = mpc.nmpc(f=ode_casadi, Delta=self.dt, **contargs)
+
     # solve mpc optimization problem at one time step
-    def predict(self,x):
+    def predict(self, x):
         # Update intial condition and solve control problem.
-        self.mpc.fixvar("x",0,x) # Set initial value
-        self.mpc.solve() # solve optimal control problem
-        uopt = np.squeeze(self.mpc.var["u",0]) # take the first optimal input solution
-        
+        self.mpc.fixvar("x", 0, x)  # Set initial value
+        self.mpc.solve()  # solve optimal control problem
+        uopt = np.squeeze(self.mpc.var["u", 0])  # take the first optimal input solution
+
         # if successful, save solution as initial guess for the next optimization problem
         if self.mpc.stats["status"] == "Solve_Succeeded":
             self.mpc.saveguess()
-        
+
         # return solution status and optimal input
         return uopt
 
@@ -142,6 +144,7 @@ class ReactorMLPReinforceAgent(torch.nn.Module):
     Returns:
         [type]: Can either return a sampled action or the distribution the action sampled from.
     """
+
     def __init__(self, obs_dim=3, act_dim=2, hidden_size=6, device='cpu'):
         super(ReactorMLPReinforceAgent, self).__init__()
         log_std = -0.5 * np.ones(act_dim, dtype=np.float32)
@@ -150,10 +153,10 @@ class ReactorMLPReinforceAgent(torch.nn.Module):
                                           torch.nn.ReLU(),
                                           torch.nn.Linear(hidden_size, act_dim))
         self.device = device
-        
+
     def forward(self, obs, return_distribution=True):
         mu = self.mu_net(obs)
-        std = torch.maximum(torch.exp(self.log_std), torch.ones_like(self.log_std)*1e-4)
+        std = torch.maximum(torch.exp(self.log_std), torch.ones_like(self.log_std) * 1e-4)
         dist = torch.distributions.normal.Normal(mu, std)
         if return_distribution:
             return dist
@@ -222,12 +225,12 @@ class ReactorEnvGym(smplEnvBase):
         self.total_reward = 0
         self.done = False
         self.dense_reward = dense_reward
-        self.normalize = normalize  
-        self.debug_mode = debug_mode  
+        self.normalize = normalize
+        self.debug_mode = debug_mode
         self.action_dim = action_dim
         self.observation_dim = observation_dim
-        self.reward_function = reward_function  
-        self.done_calculator = done_calculator  
+        self.reward_function = reward_function
+        self.done_calculator = done_calculator
         self.max_observations = max_observations
         self.min_observations = min_observations
         self.max_actions = max_actions
@@ -266,7 +269,6 @@ class ReactorEnvGym(smplEnvBase):
         self.steady_actions = np.array(STEADY_ACTIONS, dtype=self.np_dtype)  # Tc, qout
         self.initial_state_deviation_ratio = initial_state_deviation_ratio
 
-
     def reward_function_standard(self, previous_observation, action, current_observation, reward=None):
         # ---- standard ----
         # s, a, r, s, a
@@ -289,7 +291,6 @@ class ReactorEnvGym(smplEnvBase):
             print("reward:", reward)
         return reward
         # /---- standard ----
-
 
     def reset(self, initial_state=None, normalize=None):
         # ---- standard ----
@@ -543,14 +544,16 @@ class ReactorEnvGym(smplEnvBase):
                                                                                 initial_states=initial_states,
                                                                                 to_plt=to_plt, plot_dir=plot_dir)
         from warnings import warn
-        warn('The function evaluate_rewards_mean_std_over_episodes is deprecated. Please use report_rewards.', DeprecationWarning, stacklevel=2)
+        warn('The function evaluate_rewards_mean_std_over_episodes is deprecated. Please use report_rewards.',
+             DeprecationWarning, stacklevel=2)
         for n_algo in range(len(algorithms)):
             _, algo_name, _ = algorithms[n_algo]
             rewards_list_curr_algo = rewards_list[n_algo]
             if computer_on_episodes:
                 rewards_mean_over_episodes = []  # rewards_mean_over_episodes[n_epi] is mean of rewards of n_epi
                 for n_epi in range(num_episodes):
-                    if rewards_list_curr_algo[n_epi][-1] == self.error_reward: # if error_reward is provided, self.error_reward is overwritten in self.evalute_algorithms
+                    if rewards_list_curr_algo[n_epi][
+                        -1] == self.error_reward:  # if error_reward is provided, self.error_reward is overwritten in self.evalute_algorithms
                         rewards_mean_over_episodes.append(self.error_reward)
                     else:
                         rewards_mean_over_episodes.append(np.mean(rewards_list_curr_algo[n_epi]))
@@ -640,7 +643,6 @@ class ReactorEnvGym(smplEnvBase):
         init_observation = init_observation.clip(self.min_observations, self.max_observations)
         return init_observation
 
-
     def evaluate_observation(self, observation):
         """
         observation: numpy array of shape (self.observation_dim)
@@ -649,7 +651,6 @@ class ReactorEnvGym(smplEnvBase):
 
         return float(- (np.mean((observation - self.steady_observations) ** 2 / np.maximum(
             (self.init_observation - self.steady_observations) ** 2, 1e-8))))
-
 
     def generate_dataset_with_algorithm(self, algorithm, normalize=None, num_episodes=1, error_reward=-1000.0,
                                         initial_states=None, format='d4rl'):

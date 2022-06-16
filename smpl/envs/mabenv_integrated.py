@@ -1,20 +1,23 @@
 import copy
-from .utils import *
+
 import mpctools as mpc
 from scipy import integrate
+
 from .helpers.mab_helpers_integrated import xscale, uscale, MabModelHelper, DownModelHelper, UtilsHelper
+from .utils import *
 
 
 class MAbUpstreamEnvGym(smplEnvBase):
     def __init__(
-            self, dense_reward=True, normalize=True, debug_mode=False, action_dim=7+1, observation_dim=17+2+1950,
+            self, dense_reward=True, normalize=True, debug_mode=False, action_dim=7 + 1, observation_dim=17 + 2 + 1950,
             reward_function=None, done_calculator=None,
             max_observations=[200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0,
                               200.0, 200.0, 200.0, 200.0],
             min_observations=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
             max_actions=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
             min_actions=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            observation_name=None, action_name=None, np_dtype=np.float32, max_steps=int(7.2*60*100), error_reward=-100.0,
+            observation_name=None, action_name=None, np_dtype=np.float32, max_steps=int(7.2 * 60 * 100),
+            error_reward=-100.0,
             dt=0.01, ss_dir=None, standard_reward_style='setpoint') -> None:
         """[summary]
 
@@ -33,13 +36,13 @@ class MAbUpstreamEnvGym(smplEnvBase):
         self.total_reward = 0
         self.done = False
         self.dense_reward = dense_reward
-        
+
         self.normalize = normalize
-        self.debug_mode = debug_mode  
+        self.debug_mode = debug_mode
         self.action_dim = action_dim
         self.observation_dim = observation_dim
-        self.reward_function = reward_function  
-        self.done_calculator = done_calculator  
+        self.reward_function = reward_function
+        self.done_calculator = done_calculator
         self.max_observations = max_observations
         self.min_observations = min_observations
         self.max_actions = max_actions
@@ -47,7 +50,8 @@ class MAbUpstreamEnvGym(smplEnvBase):
         self.observation_name = observation_name
         self.action_name = action_name
         if self.observation_name is None:
-            self.observation_name = ['Xv1', 'Xt1', 'GLC1', 'GLN1', 'LAC1', 'AMM1', 'mAb1', 'V1', 'Xv2', 'Xt2', 'GLC2', 'GLN2', 'LAC2', 'AMM2', 'mAb2', 'V2', 'T']
+            self.observation_name = ['Xv1', 'Xt1', 'GLC1', 'GLN1', 'LAC1', 'AMM1', 'mAb1', 'V1', 'Xv2', 'Xt2', 'GLC2',
+                                     'GLN2', 'LAC2', 'AMM2', 'mAb2', 'V2', 'T']
         if self.action_name is None:
             self.action_name = ['F_in', 'F_1', 'F_r', 'F_2', 'GLC_in', 'GLN_in', 'Tc']
         self.np_dtype = np_dtype
@@ -61,10 +65,10 @@ class MAbUpstreamEnvGym(smplEnvBase):
         self.dt = dt
         self.utils_helper = UtilsHelper()
         self.xss_u, self.uss_u = self.utils_helper.load_ss(res_dir=ss_dir)
-        self.uss_u[0] = self.uss_u[0]/60  # inlet flow rate (L/min)
-        self.uss_u[1] = self.uss_u[1]/60  # outlet flow rate of bioreactor (L/min)
-        self.uss_u[2] = self.uss_u[2]/60  # u[1]-u[3] # u[2]      # recycle flow rate (L/min)
-        self.uss_u[3] = self.uss_u[3]/60  # Outlet flow rate of separator (L/min)
+        self.uss_u[0] = self.uss_u[0] / 60  # inlet flow rate (L/min)
+        self.uss_u[1] = self.uss_u[1] / 60  # outlet flow rate of bioreactor (L/min)
+        self.uss_u[2] = self.uss_u[2] / 60  # u[1]-u[3] # u[2]      # recycle flow rate (L/min)
+        self.uss_u[3] = self.uss_u[3] / 60  # Outlet flow rate of separator (L/min)
         # Steady state values of buffer tank are determined by the upstream
         c_inss = self.xss_u[14]  # Inlet concentration of mAb (mg/L)
         F_inss = self.uss_u[3]  # Inlet flow rate of buffer tank (L/min)
@@ -72,14 +76,16 @@ class MAbUpstreamEnvGym(smplEnvBase):
         self.xss_b = np.array([1, c_inss])  # Liquid height (dm), concentration of mAb (mg/L)
         self.uss_b = np.array([F_outss])
         # Steady state values for integrated model
-        self.xss = np.concatenate((self.xss_u, self.xss_b))  # Downstream is excluded here because it does not have steady state.
+        self.xss = np.concatenate(
+            (self.xss_u, self.xss_b))  # Downstream is excluded here because it does not have steady state.
         self.uss = np.concatenate((self.uss_u, self.uss_b))
         self.mabmodel = MabModelHelper(xscale, uscale, self.observation_dim, self.action_dim, dt, self.xss, self.uss)
-        self.reactor_tank_column = mpc.DiscreteSimulator(self.mabmodel.reactor_tank_column, dt, [self.observation_dim, self.action_dim], ["x", "u"])
+        self.reactor_tank_column = mpc.DiscreteSimulator(self.mabmodel.reactor_tank_column, dt,
+                                                         [self.observation_dim, self.action_dim], ["x", "u"])
 
         self.steady_observations = self.xss / xscale
-        self.steady_actions  = self.uss / uscale
-        
+        self.steady_actions = self.uss / uscale
+
         # initialize mpc
         self.standard_reward_style = standard_reward_style
 
@@ -111,7 +117,6 @@ class MAbUpstreamEnvGym(smplEnvBase):
             reward = xx[6] * uu[1] + current_observation[14] * uu[3]
         else:
             raise ValueError("standard_reward_style should be either 'setpoint' or 'productivity'")
-            
 
         reward = max(self.error_reward, reward)  # reward cannot be smaller than the error_reward
         if self.debug_mode:
@@ -157,8 +162,8 @@ class MAbUpstreamEnvGym(smplEnvBase):
         Returns:
             [np.ndarray]: [description]
         """        """"""
-        low = self.xss/xscale * lower_bound
-        up = self.xss/xscale * upper_bound
+        low = self.xss / xscale * lower_bound
+        up = self.xss / xscale * upper_bound
         return np.random.uniform(low, up)
 
     def reset(self, initial_state=None, normalize=None):
@@ -183,7 +188,7 @@ class MAbUpstreamEnvGym(smplEnvBase):
         self.t = []
         self.X = []
         self.U = []
-        self.xk = np.concatenate((self.xss_u, self.xss_b, np.zeros((self.mabmodel.num_z_cap_load*13,))))
+        self.xk = np.concatenate((self.xss_u, self.xss_b, np.zeros((self.mabmodel.num_z_cap_load * 13,))))
         self.uk = np.concatenate((self.uss_u, self.uss_b))
         self.X += [self.xk]
 
@@ -208,10 +213,9 @@ class MAbUpstreamEnvGym(smplEnvBase):
             action, _, _ = denormalize_spaces(action, self.max_actions, self.min_actions)
 
         # TOMODIFY: proceed your environment here and collect the observation.
-        self.t += [self.step_count*self.dt]
+        self.t += [self.step_count * self.dt]
 
-
-        # ---- to capture numpy warnings ---- 
+        # ---- to capture numpy warnings ----
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("error")
             try:
@@ -383,14 +387,16 @@ class MAbUpstreamEnvGym(smplEnvBase):
                                                                                 initial_states=initial_states,
                                                                                 to_plt=to_plt, plot_dir=plot_dir)
         from warnings import warn
-        warn('The function evaluate_rewards_mean_std_over_episodes is deprecated. Please use report_rewards.', DeprecationWarning, stacklevel=2)
+        warn('The function evaluate_rewards_mean_std_over_episodes is deprecated. Please use report_rewards.',
+             DeprecationWarning, stacklevel=2)
         for n_algo in range(len(algorithms)):
             _, algo_name, _ = algorithms[n_algo]
             rewards_list_curr_algo = rewards_list[n_algo]
             if computer_on_episodes:
                 rewards_mean_over_episodes = []  # rewards_mean_over_episodes[n_epi] is mean of rewards of n_epi
                 for n_epi in range(num_episodes):
-                    if rewards_list_curr_algo[n_epi][-1] == self.error_reward: # if error_reward is provided, self.error_reward is overwritten in self.evalute_algorithms
+                    if rewards_list_curr_algo[n_epi][
+                        -1] == self.error_reward:  # if error_reward is provided, self.error_reward is overwritten in self.evalute_algorithms
                         rewards_mean_over_episodes.append(self.error_reward)
                     else:
                         rewards_mean_over_episodes.append(np.mean(rewards_list_curr_algo[n_epi]))

@@ -1,15 +1,19 @@
 import copy
-from .utils import *
+
 import mpctools as mpc
-from scipy import integrate
 import timeout_decorator
+from scipy import integrate
+
 from .helpers.mab_helpers import xscale, uscale, UtilsHelper, ControllerHelper
-STEP_TIMEOUT_LENGTH = 30 # how long in second(s) a step can take before a timeout error is triggered.
+from .utils import *
+
+STEP_TIMEOUT_LENGTH = 30  # how long in second(s) a step can take before a timeout error is triggered.
+
 
 class MAbUpstreamMPC:
     def __init__(
-            self, controller, action_dim=7+1+1, observation_dim=17+2+1951) -> None:
-        
+            self, controller, action_dim=7 + 1 + 1, observation_dim=17 + 2 + 1951) -> None:
+
         self.controller = controller
         # self.xss = xss
         # self.uss = uss
@@ -19,14 +23,19 @@ class MAbUpstreamMPC:
         self.action_dim = action_dim
         self.observation_dim = observation_dim
         num_x = [17, 2, 1951]  # Number of states for each unit
-        num_u = [7, 1, 1]      # Number of inputs for each unit
-        Q = np.eye(num_x[0]); R = np.eye(num_u[0]); N = 300 # Q, R, N are for the EMPC controller. N is the memory length.
+        num_u = [7, 1, 1]  # Number of inputs for each unit
+        Q = np.eye(num_x[0]);
+        R = np.eye(num_u[0]);
+        N = 300  # Q, R, N are for the EMPC controller. N is the memory length.
         solver_opts = {'tol': 1E-5}  # Change tolerance
         casadi_opts = {'ipopt.linear_solver': 'mumps', 'verbose': False, 'ipopt.print_level': 0, 'ipopt.tol': 1E-4}
-        self.mpc_cont = controller._build_mpc_up(Q, R, N, controller.dt_spl, controller.xss[:controller.Nx_up], controller.uss[:controller.Nu_up], controller.xscale[:controller.Nx_up], controller.uscale[:controller.Nu_up])
+        self.mpc_cont = controller._build_mpc_up(Q, R, N, controller.dt_spl, controller.xss[:controller.Nx_up],
+                                                 controller.uss[:controller.Nu_up],
+                                                 controller.xscale[:controller.Nx_up],
+                                                 controller.uscale[:controller.Nu_up])
         controller.mpc_cont = self.mpc_cont
         self.mpc_cont.initialize(casadioptions=casadi_opts, solveroptions=solver_opts)
-        
+
     def predict(self, o):
         u = np.zeros(self.action_dim)
         x = o
@@ -43,23 +52,29 @@ class MAbUpstreamMPC:
         u[7] = self.controller._pcontroller(x_buffer[0])
         u[8] = self.controller._switcher(x_down)
         return u
-    
+
+
 class MAbUpstreamEMPC:
     def __init__(
-            self, controller, action_dim=7+1+1, observation_dim=17+2+1951) -> None:
-        
+            self, controller, action_dim=7 + 1 + 1, observation_dim=17 + 2 + 1951) -> None:
+
         self.controller = controller
         self.action_dim = action_dim
         self.observation_dim = observation_dim
         num_x = [17, 2, 1951]  # Number of states for each unit
-        num_u = [7, 1, 1]      # Number of inputs for each unit
-        Q = np.eye(num_x[0]); R = np.eye(num_u[0]); N = 300 # Q, R, N are for the EMPC controller. N is the memory length.
+        num_u = [7, 1, 1]  # Number of inputs for each unit
+        Q = np.eye(num_x[0]);
+        R = np.eye(num_u[0]);
+        N = 300  # Q, R, N are for the EMPC controller. N is the memory length.
         solver_opts = {'tol': 1E-5}  # Change tolerance
         casadi_opts = {'ipopt.linear_solver': 'mumps', 'verbose': False, 'ipopt.print_level': 0, 'ipopt.tol': 1E-4}
-        self.empc_cont = controller._build_empc_up(N, controller.dt_spl, controller.xss[:controller.Nx_up], controller.uss[:controller.Nu_up], controller.xscale[:controller.Nx_up], controller.uscale[:controller.Nu_up])
+        self.empc_cont = controller._build_empc_up(N, controller.dt_spl, controller.xss[:controller.Nx_up],
+                                                   controller.uss[:controller.Nu_up],
+                                                   controller.xscale[:controller.Nx_up],
+                                                   controller.uscale[:controller.Nu_up])
         controller.empc_cont = self.empc_cont
         self.empc_cont.initialize(casadioptions=casadi_opts, solveroptions=solver_opts)
-        
+
     def predict(self, o):
         u = np.zeros(self.action_dim)
         x = o
@@ -80,14 +95,17 @@ class MAbUpstreamEMPC:
 
 class MAbEnvGym(smplEnvBase):
     def __init__(
-            self, dataset_dir='smpl/datasets/mabenv', dense_reward=True, normalize=True, debug_mode=False, action_dim=7+1+1, observation_dim=17+2+1951,
+            self, dataset_dir='smpl/datasets/mabenv', dense_reward=True, normalize=True, debug_mode=False,
+            action_dim=7 + 1 + 1, observation_dim=17 + 2 + 1951,
             reward_function=None, done_calculator=None,
             max_observations=None,
             min_observations=None,
             max_actions=None,
             min_actions=None,
-            observation_name=None, action_name=None, np_dtype=np.float32, max_steps=200, error_reward=-100.0, initial_state_deviation_ratio=0.1,
-            upstream_states=17+2, switch_threshold=0.5, dt_itgr=60, dt_spl=60, ss_dir=None, standard_reward_style='setpoint') -> None:
+            observation_name=None, action_name=None, np_dtype=np.float32, max_steps=200, error_reward=-100.0,
+            initial_state_deviation_ratio=0.1,
+            upstream_states=17 + 2, switch_threshold=0.5, dt_itgr=60, dt_spl=60, ss_dir=None,
+            standard_reward_style='setpoint') -> None:
         """[summary]
 
         Args:
@@ -113,13 +131,13 @@ class MAbEnvGym(smplEnvBase):
         self.total_reward = 0
         self.done = False
         self.dense_reward = dense_reward
-        
+
         self.normalize = normalize
-        self.debug_mode = debug_mode  
+        self.debug_mode = debug_mode
         self.action_dim = action_dim
         self.observation_dim = observation_dim
-        self.reward_function = reward_function  
-        self.done_calculator = done_calculator  
+        self.reward_function = reward_function
+        self.done_calculator = done_calculator
         self.max_observations = max_observations
         self.min_observations = min_observations
         self.max_actions = max_actions
@@ -127,7 +145,8 @@ class MAbEnvGym(smplEnvBase):
         self.observation_name = observation_name
         self.action_name = action_name
         if self.observation_name is None:
-            self.observation_name = ['Xv1', 'Xt1', 'GLC1', 'GLN1', 'LAC1', 'AMM1', 'mAb1', 'V1', 'Xv2', 'Xt2', 'GLC2', 'GLN2', 'LAC2', 'AMM2', 'mAb2', 'V2', 'T']
+            self.observation_name = ['Xv1', 'Xt1', 'GLC1', 'GLN1', 'LAC1', 'AMM1', 'mAb1', 'V1', 'Xv2', 'Xt2', 'GLC2',
+                                     'GLN2', 'LAC2', 'AMM2', 'mAb2', 'V2', 'T']
         if self.action_name is None:
             self.action_name = ['F_in', 'F_1', 'F_r', 'F_2', 'GLC_in', 'GLN_in', 'Tc']
         self.np_dtype = np_dtype
@@ -146,21 +165,22 @@ class MAbEnvGym(smplEnvBase):
         self.dt_spl = dt_spl
         self.standard_reward_style = standard_reward_style
         self.num_x = [17, 2, 1951]  # Number of states for each unit
-        self.num_u = [7, 1, 1]      # Number of inputs for each unit
+        self.num_u = [7, 1, 1]  # Number of inputs for each unit
         assert sum(self.num_x) == observation_dim
         assert sum(self.num_u) == action_dim
-        
+
         self.utils_helper = UtilsHelper()
         self.xss, self.uss = self.utils_helper.prepare_ss(self.dataset_dir)  # 9, 1970
         self.steady_observations = self.xss / xscale
-        self.steady_actions  = self.uss / uscale
+        self.steady_actions = self.uss / uscale
         # set max and min
-        self.min_actions, self.max_actions, self.min_observations, self.max_observations = self.utils_helper.load_bounds(self.dataset_dir) 
+        self.min_actions, self.max_actions, self.min_observations, self.max_observations = self.utils_helper.load_bounds(
+            self.dataset_dir)
         self.min_actions, self.max_actions, self.min_observations, self.max_observations = self.min_actions / uscale, self.max_actions / uscale, self.min_observations / xscale, self.max_observations / xscale
-        self.controller = ControllerHelper(self.num_x, self.num_u, self.max_steps, dt_itgr, dt_spl, xscale, uscale, self.xss, self.uss)
+        self.controller = ControllerHelper(self.num_x, self.num_u, self.max_steps, dt_itgr, dt_spl, xscale, uscale,
+                                           self.xss, self.uss)
         self.plant = self.controller._build_plant()
-        
-        
+
         # define the state and action spaces
         self.max_observations = np.array(self.max_observations, dtype=self.np_dtype)
         self.min_observations = np.array(self.min_observations, dtype=self.np_dtype)
@@ -173,7 +193,7 @@ class MAbEnvGym(smplEnvBase):
             self.observation_space = spaces.Box(low=self.min_observations, high=self.max_observations,
                                                 shape=(self.observation_dim,))
             self.action_space = spaces.Box(low=self.min_actions, high=self.max_actions, shape=(self.action_dim,))
-            
+
     def observation_beyond_box(self, observation):
         """check if the observation is beyond the box, which is what we don't want.
 
@@ -183,8 +203,10 @@ class MAbEnvGym(smplEnvBase):
         Returns:
             [bool]: observation is beyond the box or not.
         """
-        #TODO: check for how long?        
-        return np.any(observation[:self.upstream_states] > self.max_observations[:self.upstream_states]*1.05) or np.any(observation[:self.upstream_states] < self.min_observations[:self.upstream_states]) or np.any(
+        # TODO: check for how long?
+        return np.any(
+            observation[:self.upstream_states] > self.max_observations[:self.upstream_states] * 1.05) or np.any(
+            observation[:self.upstream_states] < self.min_observations[:self.upstream_states]) or np.any(
             np.isnan(observation)) or np.any(np.isinf(observation))
 
     def reward_function_standard(self, previous_observation, action, current_observation, reward=None):
@@ -195,21 +217,21 @@ class MAbEnvGym(smplEnvBase):
 
         # TOMODIFY: insert your own reward function here.
         if self.standard_reward_style == 'setpoint':
-            reward = -(np.square(current_observation[:17+2] - self.steady_observations[:17+2])).mean()
+            reward = -(np.square(current_observation[:17 + 2] - self.steady_observations[:17 + 2])).mean()
         else:
             xx = current_observation * xscale
             uu = action * uscale
-            productivity = xx[6] * uu[1] + current_observation[14] * uu[3] # range of reward is [0, inf)
+            productivity = xx[6] * uu[1] + current_observation[14] * uu[3]  # range of reward is [0, inf)
             if self.standard_reward_style == 'productivity':
                 reward = productivity
             elif self.standard_reward_style == 'yield':
                 # current_observation[19] is the inlet concentration
                 # current_observation[-14] is the outlet concentration. The smaller the fewer waste, the better.
-                downstream_yield = 1 - current_observation[-14]/(current_observation[19]+1e-8) # range of downstream_yield is [0,1].
+                downstream_yield = 1 - current_observation[-14] / (
+                        current_observation[19] + 1e-8)  # range of downstream_yield is [0,1].
                 reward = productivity * downstream_yield
             else:
                 raise ValueError("standard_reward_style should be either 'setpoint' or 'productivity'")
-            
 
         reward = max(self.error_reward, reward)  # reward cannot be smaller than the error_reward
         if self.debug_mode:
@@ -261,11 +283,11 @@ class MAbEnvGym(smplEnvBase):
         if upper_bound is None:
             upper_bound = 1 + self.initial_state_deviation_ratio
         low = self.steady_observations[:self.upstream_states] * lower_bound
-        low = np.concatenate([low,  self.steady_observations[self.upstream_states:]])
+        low = np.concatenate([low, self.steady_observations[self.upstream_states:]])
         up = self.steady_observations[:self.upstream_states] * upper_bound
-        up = np.concatenate([up,  self.steady_observations[self.upstream_states:]])
+        up = np.concatenate([up, self.steady_observations[self.upstream_states:]])
         return np.random.uniform(low, up)
-    
+
     def evenly_spread_initial_states(self, val_per_state, dump_location=None):
         """
         Evenly spread initial states.
@@ -296,7 +318,7 @@ class MAbEnvGym(smplEnvBase):
                 curr_val.append(tmp_o[oi][rmder])
                 tmp_val_range = int((tmp_val_range - rmder) / val_per_state)
             initial_states[i] = curr_val
-            initial_states[i] = np.concatenate([initial_states[i],  self.steady_observations[self.upstream_states:]])
+            initial_states[i] = np.concatenate([initial_states[i], self.steady_observations[self.upstream_states:]])
         if dump_location is not None:
             np.save(dump_location, initial_states)
         return initial_states
@@ -328,12 +350,12 @@ class MAbEnvGym(smplEnvBase):
         if normalize:
             observation, _, _ = normalize_spaces(observation, self.max_observations, self.min_observations)
         return observation
-    
+
     @timeout_decorator.timeout(STEP_TIMEOUT_LENGTH)
     def _simulation(self, xk, uk):
         xk = copy.deepcopy(xk)
         uk = copy.deepcopy(uk)
-        
+
         if uk[-1] >= self.switch_threshold:
             # if self.debug_mode:
             #     print(xk[-1] * uk[7], 'mg of mAb is captured. Switching the column')
@@ -345,7 +367,7 @@ class MAbEnvGym(smplEnvBase):
         xkp1 = self.plant.sim(xk, uk)
         # update accumulated mAb
         xkp1[-1] += self.dt_itgr * (
-                    xkp1[19] - xkp1[-14])  # difference between inlet concentration and outlet concentration
+                xkp1[19] - xkp1[-14])  # difference between inlet concentration and outlet concentration
         return xkp1
 
     def step(self, action, normalize=None):
@@ -364,10 +386,9 @@ class MAbEnvGym(smplEnvBase):
             action, _, _ = denormalize_spaces(action, self.max_actions, self.min_actions)
 
         # TOMODIFY: proceed your environment here and collect the observation.
-        self.t += [self.step_count*self.dt_spl]
+        self.t += [self.step_count * self.dt_spl]
 
-
-        # ---- to capture numpy warnings ---- 
+        # ---- to capture numpy warnings ----
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("error")
             try:
@@ -544,14 +565,16 @@ class MAbEnvGym(smplEnvBase):
                                                                                 initial_states=initial_states,
                                                                                 to_plt=to_plt, plot_dir=plot_dir)
         from warnings import warn
-        warn('The function evaluate_rewards_mean_std_over_episodes is deprecated. Please use report_rewards.', DeprecationWarning, stacklevel=2)
+        warn('The function evaluate_rewards_mean_std_over_episodes is deprecated. Please use report_rewards.',
+             DeprecationWarning, stacklevel=2)
         for n_algo in range(len(algorithms)):
             _, algo_name, _ = algorithms[n_algo]
             rewards_list_curr_algo = rewards_list[n_algo]
             if computer_on_episodes:
                 rewards_mean_over_episodes = []  # rewards_mean_over_episodes[n_epi] is mean of rewards of n_epi
                 for n_epi in range(num_episodes):
-                    if rewards_list_curr_algo[n_epi][-1] == self.error_reward: # if error_reward is provided, self.error_reward is overwritten in self.evalute_algorithms
+                    if rewards_list_curr_algo[n_epi][
+                        -1] == self.error_reward:  # if error_reward is provided, self.error_reward is overwritten in self.evalute_algorithms
                         rewards_mean_over_episodes.append(self.error_reward)
                     else:
                         rewards_mean_over_episodes.append(np.mean(rewards_list_curr_algo[n_epi]))

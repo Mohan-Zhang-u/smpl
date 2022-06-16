@@ -42,7 +42,7 @@ class PenSimEnvGym(PenSimEnv, smplEnvBase):
             min_observations=[0.0, 0.0, 118.98977, 0.0, 0.0, 0.0, 0.0, 25003.258, 0.0],
             max_actions=[4100.0, 151.0, 36.0, 76.0, 1.2, 510.0],
             min_actions=[0.0, 7.0, 21.0, 29.0, 0.5, 0.0],
-            observation_name=None, action_name=None, initial_state_deviation_ratio = 0.1,
+            observation_name=None, action_name=None, initial_state_deviation_ratio=0.1,
             np_dtype=np.float32, max_steps=NUM_STEPS, error_reward=-100.0,
             fast=True, random_seed=0, random_seed_max=20000):
         """
@@ -61,12 +61,12 @@ class PenSimEnvGym(PenSimEnv, smplEnvBase):
         self.total_reward = 0
         self.done = False
         self.dense_reward = dense_reward
-        self.normalize = normalize  
-        self.debug_mode = debug_mode  
+        self.normalize = normalize
+        self.debug_mode = debug_mode
         self.action_dim = action_dim
         self.observation_dim = observation_dim
-        self.reward_function = reward_function  
-        self.done_calculator = done_calculator  
+        self.reward_function = reward_function
+        self.done_calculator = done_calculator
         self.max_observations = max_observations
         self.min_observations = min_observations
         self.max_actions = max_actions
@@ -76,7 +76,8 @@ class PenSimEnvGym(PenSimEnv, smplEnvBase):
         if self.observation_name is None:
             self.observation_name = [f'o_{i}' for i in range(self.observation_dim)]
         if self.action_name is None:
-            self.action_name = ["Discharge rate", ",Sugar feed rate", "Soil bean feed rate", "Aeration rate", "Back pressure", "Water injection/dilution"] # discharge, Fs, Foil, Fg, pressure, Fw
+            self.action_name = ["Discharge rate", ",Sugar feed rate", "Soil bean feed rate", "Aeration rate",
+                                "Back pressure", "Water injection/dilution"]  # discharge, Fs, Foil, Fg, pressure, Fw
         self.initial_state_deviation_ratio = initial_state_deviation_ratio
         self.np_dtype = np_dtype
         self.max_steps = max_steps
@@ -102,8 +103,9 @@ class PenSimEnvGym(PenSimEnv, smplEnvBase):
         random.seed(random_seed)
         self.random_seed_ref = random_seed
         self.random_seed_max = random_seed_max
-        self.init_observation_from_dataset = np.array([0.2, 6.5, 300.0, 0.0, 10.828493, 0.0001, 150.0, 62500.0, 14.75], dtype=self.np_dtype) # init observation generated from dataset.
-        
+        self.init_observation_from_dataset = np.array([0.2, 6.5, 300.0, 0.0, 10.828493, 0.0001, 150.0, 62500.0, 14.75],
+                                                      dtype=self.np_dtype)  # init observation generated from dataset.
+
     def sample_initial_state(self, random_seed_ref=None):
         # notice that this function here has to reset the PenSimEnv.
         if random_seed_ref:
@@ -120,19 +122,19 @@ class PenSimEnvGym(PenSimEnv, smplEnvBase):
         self.step_count = 0
         self.total_reward = 0
         self.done = False
-        
-        observation_0s = self.sample_initial_state(random_seed_ref=random_seed_ref) # this observation is all zeros.
+
+        observation_0s = self.sample_initial_state(random_seed_ref=random_seed_ref)  # this observation is all zeros.
         observation = self.init_observation_from_dataset
         self.init_observation = observation
         self.previous_observation = observation
-        
+
         normalize = self.normalize if normalize is None else normalize
         if normalize:
             observation, _, _ = normalize_spaces(observation, self.max_observations, self.min_observations)
         return observation
 
     def step(self, action, normalize=None):
-        
+
         if self.debug_mode:
             print("action:", action)
         reward = None
@@ -141,12 +143,13 @@ class PenSimEnvGym(PenSimEnv, smplEnvBase):
         normalize = self.normalize if normalize is None else normalize
         if normalize:
             action, _, _ = denormalize_spaces(action, self.max_actions, self.min_actions)
-        
+
         try:
-            self.step_count += 1 # here we increment at front
+            self.step_count += 1  # here we increment at front
             values_dict = self.recipe_combo.get_values_dict_at(self.step_count * STEP_IN_MINUTES)
             # served as a batch buffer below
-            pensimpy_observation, x, yield_per_run, done = super().step(self.step_count, self.x, action[1], action[2], action[3],
+            pensimpy_observation, x, yield_per_run, done = super().step(self.step_count, self.x, action[1], action[2],
+                                                                        action[3],
                                                                         action[4], action[0], action[5],
                                                                         values_dict['Fpaa'])
             # in pensimpy, done = True if k == NUM_STEPS else False
@@ -160,9 +163,12 @@ class PenSimEnvGym(PenSimEnv, smplEnvBase):
         except Exception as e:
             observation = self.min_observations
             done_info = {"timeout": False, "error_occurred": True, "terminal": True}
-        
-        observation, reward, done, done_info = self.observation_done_and_reward_calculator(observation, action, normalize=normalize, step_reward=reward, done_info=done_info)
-        self.step_count -= 1 # we already increment at front.
+
+        observation, reward, done, done_info = self.observation_done_and_reward_calculator(observation, action,
+                                                                                           normalize=normalize,
+                                                                                           step_reward=reward,
+                                                                                           done_info=done_info)
+        self.step_count -= 1  # we already increment at front.
         info = {}
         info.update(done_info)
         return observation, reward, done, info
@@ -185,7 +191,8 @@ class PeniControlData:
         self.action_dim = action_dim
         self.normalize = normalize
         self.np_dtype = np_dtype
-        self.max_observations = [276.0, 8.052615, 362.8414, 6.858637, 270.0, 1800.0001, 946.03937, 126920.055, 23.949417]
+        self.max_observations = [276.0, 8.052615, 362.8414, 6.858637, 270.0, 1800.0001, 946.03937, 126920.055,
+                                 23.949417]
         self.min_observations = [0.16000001, 4.5955915, 237.97954, 0.0, 0.0, 0.0, 0.0, 50006.516, 2.3598127]
         self.max_actions = [4100.0, 151.0, 36.0, 76.0, 1.2, 510.0]
         self.min_actions = [0.0, 7.0, 21.0, 29.0, 0.5, 0.0]
@@ -193,7 +200,7 @@ class PeniControlData:
         self.min_observations = np.array(self.min_observations, dtype=self.np_dtype)
         self.max_actions = np.array(self.max_actions, dtype=self.np_dtype)
         self.min_actions = np.array(self.min_actions, dtype=self.np_dtype)
-        
+
         if load_just_a_file != '':
             file_list = [load_just_a_file]
         else:
@@ -260,9 +267,9 @@ class PeniControlData:
         print("using max/min observations and actions.")
         if self.normalize:
             dataset['observations'], _, _ = normalize_spaces(dataset['observations'], self.max_observations,
-                                                            self.min_observations)
+                                                             self.min_observations)
             dataset['next_observations'], _, _ = normalize_spaces(dataset['next_observations'], self.max_observations,
-                                                                self.min_observations)
+                                                                  self.min_observations)
             dataset['actions'], _, _ = normalize_spaces(dataset['actions'], self.max_actions,
                                                         self.min_actions)  # passed in a normalized version.
         # self.action_space = spaces.Box(low=-1, high=1, shape=(self.action_dim,))
