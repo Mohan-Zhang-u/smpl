@@ -95,7 +95,7 @@ class MAbUpstreamEMPC:
 
 class MAbEnvGym(smplEnvBase):
     def __init__(
-            self, dataset_dir='smpl/datasets/mabenv', dense_reward=True, normalize=True, debug_mode=False,
+            self, dataset_dir='smpl/configdata/mabenv', dense_reward=True, normalize=True, debug_mode=False,
             action_dim=7 + 1 + 1, observation_dim=17 + 2 + 1951,
             reward_function=None, done_calculator=None,
             max_observations=None,
@@ -110,7 +110,7 @@ class MAbEnvGym(smplEnvBase):
 
         Args:
             dataset_dir (str, optional): The dataset directory that has uss.npy, xss.npy, ulb.npy, uub.npy,
-                xlb.npy, xub.npy. You could find it in 'smpl/datasets/mabenv' when you clone from github.
+                xlb.npy, xub.npy. You could find it in 'smpl/configdata/mabenv' when you clone from github.
             upstream_states  (int, optional): The number of states to use for the upstream.
             initial_state_deviation_ratio  (float, optional): The initial state range around steady states. Defaults to 0.1.
             switch_threshold (float, optional): When action[-1] >= switch_threshold, we change the buffer tank.

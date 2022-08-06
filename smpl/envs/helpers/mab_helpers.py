@@ -715,12 +715,12 @@ uscale = np.concatenate(
 
 
 class UtilsHelper:
-    def load_ss(self, res_dir='smpl/datasets/mabenv'):
+    def load_ss(self, res_dir='smpl/configdata/mabenv'):
         xss = np.load(os.path.join(res_dir, 'xss.npy'))
         uss = np.load(os.path.join(res_dir, 'uss.npy'))
         return xss, uss
 
-    def load_bounds(self, res_dir='smpl/datasets/mabenv'):
+    def load_bounds(self, res_dir='smpl/configdata/mabenv'):
         ulb = np.load(os.path.join(res_dir, 'ulb.npy'))
         uub = np.load(os.path.join(res_dir, 'uub.npy'))
         xlb = np.load(os.path.join(res_dir, 'xlb.npy'))

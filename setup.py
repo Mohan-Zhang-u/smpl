@@ -25,6 +25,6 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     include_package_data=True,
-    package_data={'': ['smpl/datasets*']},
+    package_data={'': ['smpl/configdata*']},
     python_requires='>=3.8',
 )

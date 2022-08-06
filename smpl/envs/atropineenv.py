@@ -20,7 +20,7 @@ from .utils import *
 
 class AtropineMPC:
     def __init__(self,
-                 model_loc='https://github.com/Quarticai/QuarticGym/blob/master/quarticgym/datasets/atropineenv/model.npy?raw=true',
+                 model_loc='https://github.com/smpl-env/smpl-experiments/blob/main/configdata/atropineenv/model.npy?raw=true',
                  N=30, Nx=2, Nu=4,
                  uss_subtracted=True, reward_on_ess_subtracted=False, reward_on_steady=True,
                  reward_on_absolute_efactor=False, reward_on_actions_penalty=0.0, reward_on_reject_actions=True,
@@ -105,9 +105,9 @@ class AtropineEnvGym(smplEnvBase):
                  reward_function=None, done_calculator=None,
                  observation_name=None, action_name=None, np_dtype=np.float32, max_steps=60,
                  error_reward=-100000.0,
-                 x0_loc='https://raw.githubusercontent.com/smpl-env/smpl/main/smpl/datasets/atropineenv/x0.txt',
-                 z0_loc='https://raw.githubusercontent.com/smpl-env/smpl/main/smpl/datasets/atropineenv/z0.txt',
-                 model_loc='https://github.com/Quarticai/QuarticGym/blob/master/quarticgym/datasets/atropineenv/model.npy?raw=true',
+                 x0_loc='https://raw.githubusercontent.com/smpl-env/smpl/main/smpl/configdata/atropineenv/x0.txt',
+                 z0_loc='https://raw.githubusercontent.com/smpl-env/smpl/main/smpl/configdata/atropineenv/z0.txt',
+                 model_loc='https://github.com/smpl-env/smpl-experiments/blob/main/configdata/atropineenv/model.npy?raw=true',
                  uss_subtracted=True, reward_on_ess_subtracted=False, reward_on_steady=True,
                  reward_on_absolute_efactor=False, reward_on_actions_penalty=0.0, reward_on_reject_actions=True,
                  reward_scaler=1.0,
