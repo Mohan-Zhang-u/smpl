@@ -1,4 +1,4 @@
-This repo contains configuration information and some example trajectories of environments. This
+This repo contains configuration information and some example trajectories of environments.
 
 AtropineEnv
 -----------
