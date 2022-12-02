@@ -13,7 +13,7 @@ The Simulated Industrial Manufacturing and Process Control Learning Environments
 Documentation
 -------------
 
-The documentation is available here! `https://smpl-env.github.io/smpl-document/index.html>`_
+The documentation is available here! `https://smpl-env.github.io/smpl-document/index.html <https://smpl-env.github.io/smpl-document/index.html>`_
 
 Install
 -------
