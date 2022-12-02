@@ -10,6 +10,11 @@
 
 The Simulated Industrial Manufacturing and Process Control Learning Environments (`SMPL`_) supplements several process control environments to the `Openai Gym`_ family, which quenches the pain of performing Deep Reinforcement Learning algorithms on them. Furthermore, we provided `d4rl`_-like wrappers for accompanied datasets, making Offline RL on those environments even smoother.
 
+Documentation
+-------------
+
+The documentation is available here! `https://smpl-env.github.io/smpl-document/index.html>`_
+
 Install
 -------
 .. code-block::
