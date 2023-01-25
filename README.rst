@@ -13,6 +13,7 @@ The Simulated Industrial Manufacturing and Process Control Learning Environments
 For the paper `SMPL: Simulated Manufacturing and Process Control Learning Environments <https://openreview.net/forum?id=TscdNx8udf5>`_, you can cite with 
 
 .. code-block::
+    
     @inproceedings{
     zhang2022smpl,
     title={{SMPL}: Simulated Industrial Manufacturing and Process Control Learning Environments},
